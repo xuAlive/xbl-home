@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xu.home.mapper.blog.DeepseekDialogueInfoMapper">
+
+    <resultMap id="BaseResultMap" type="com.xu.home.domain.blog.DeepseekDialogueInfo">
+            <id property="id" column="id" jdbcType="INTEGER"/>
+            <result property="dialogueId" column="dialogue_id" jdbcType="BIGINT"/>
+            <result property="role" column="role" jdbcType="VARCHAR"/>
+            <result property="content" column="content" jdbcType="VARCHAR"/>
+            <result property="account" column="account" jdbcType="VARCHAR"/>
+            <result property="creatTime" column="creat_time" jdbcType="TIMESTAMP"/>
+            <result property="updateTime" column="update_time" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,dialogue_id,role,
+        content,account,creat_time,update_time
+    </sql>
+
+    <select id="selectCompletion" resultType="com.xu.home.param.blog.vo.ds.CompletionVO">
+        select role, content, dialogue_id as dialogueId
+        from deepseek_dialogue_info
+        where dialogue_id = #{dialogueId}
+        <if test="account != null and account != ''">
+            and account = #{account}
+        </if>
+        order by creat_time asc
+    </select>
+
+    <select id="selectCompletionHistory" resultType="com.xu.home.param.blog.vo.ds.CompletionHistoryVO">
+        SELECT
+            t.dialogue_id as dialogueId,
+            CASE
+                WHEN LENGTH(t.content) > 10 THEN SUBSTRING(t.content, 1, 10)
+                ELSE t.content
+            END as content
+        FROM deepseek_dialogue_info t
+        WHERE t.account = #{account}
+            AND t.id IN (
+                SELECT MIN(id)
+                FROM deepseek_dialogue_info
+                WHERE account = #{account}
+                GROUP BY dialogue_id
+            )
+        ORDER BY t.creat_time DESC
+    </select>
+
+    <delete id="deleteByDialogueIdAndAccount">
+        DELETE FROM deepseek_dialogue_info
+        WHERE dialogue_id = #{dialogueId}
+        AND account = #{account}
+    </delete>
+
+    <select id="countDialogueByAccount" resultType="int">
+        SELECT COUNT(DISTINCT dialogue_id)
+        FROM deepseek_dialogue_info
+        WHERE account = #{account}
+    </select>
+
+</mapper>

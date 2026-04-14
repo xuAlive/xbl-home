@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+                   xmlns:pro="http://www.liquibase.org/xml/ns/pro"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-latest.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="2026-004-create-blog-article-browsing-history" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `blog_article_browsing_history` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                `account` VARCHAR(64) NOT NULL COMMENT '浏览者账号',
+                `article_id` INT NOT NULL COMMENT '文章ID',
+                `last_view_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最后浏览时间',
+                `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_account_article` (`account`, `article_id`),
+                KEY `idx_account_last_view_time` (`account`, `last_view_time`),
+                KEY `idx_article_id` (`article_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='博客文章浏览记录表';
+        </sql>
+    </changeSet>
+</databaseChangeLog>

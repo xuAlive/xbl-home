@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="2026-system-message-001" author="codex">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `blog_system_message` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `title` VARCHAR(100) NOT NULL COMMENT '消息标题',
+                `content` TEXT NOT NULL COMMENT '消息内容',
+                `creator_account` VARCHAR(50) NOT NULL COMMENT '创建人账号',
+                `status` TINYINT DEFAULT 1 COMMENT '状态: 1-启用 0-停用',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                KEY `idx_blog_system_message_status` (`status`, `create_time`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='系统消息表';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

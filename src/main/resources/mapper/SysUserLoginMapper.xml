@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xu.home.mapper.blog.SysUserLoginMapper">
+
+    <resultMap id="BaseResultMap" type="com.xu.home.domain.blog.SysUserLogin">
+            <id property="id" column="id" jdbcType="INTEGER"/>
+            <result property="account" column="account" jdbcType="VARCHAR"/>
+            <result property="ip" column="ip" jdbcType="VARCHAR"/>
+            <result property="address" column="address" jdbcType="VARCHAR"/>
+            <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,account,ip,address,
+        create_time
+    </sql>
+
+    <!-- 按账号和IP分组查询登录记录（分页） -->
+    <select id="selectLoginRecordsGroupByAccountAndIp" resultType="com.xu.home.param.blog.vo.sys.UserLoginVO">
+        SELECT
+            account,
+            ip,
+            MAX(address) as address,
+            COUNT(*) as loginCount,
+            MAX(create_time) as lastLoginTime
+        FROM sys_user_login
+        <where>
+            <if test="account != null and account != ''">
+                AND account = #{account}
+            </if>
+        </where>
+        GROUP BY account, ip
+        ORDER BY lastLoginTime DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <!-- 按账号和IP分组查询登录记录总数 -->
+    <select id="countLoginRecordsGroupByAccountAndIp" resultType="int">
+        SELECT COUNT(*) FROM (
+            SELECT account, ip
+            FROM sys_user_login
+            <where>
+                <if test="account != null and account != ''">
+                    AND account = #{account}
+                </if>
+            </where>
+            GROUP BY account, ip
+        ) t
+    </select>
+
+    <!-- 查询所有登录地点及次数（用于地图标点） -->
+    <select id="selectAllLoginLocations" resultType="com.xu.home.param.blog.vo.sys.UserLoginVO">
+        SELECT
+            account,
+            ip,
+            MAX(address) as address,
+            COUNT(*) as loginCount,
+            MAX(create_time) as lastLoginTime
+        FROM sys_user_login
+        <where>
+            <if test="account != null and account != ''">
+                AND account = #{account}
+            </if>
+        </where>
+        GROUP BY account, ip
+        ORDER BY lastLoginTime DESC
+    </select>
+
+    <!-- 按省份统计登录次数 -->
+    <select id="selectLoginCountByProvince" resultType="com.xu.home.param.blog.vo.sys.ProvinceStatVO">
+        SELECT
+            CASE
+                WHEN address IS NULL OR address = '' OR address = '未知' THEN '未知'
+                WHEN address = '本地局域网' THEN '本地'
+                ELSE SUBSTRING_INDEX(SUBSTRING_INDEX(address, '-', 2), '-', -1)
+            END as province,
+            COUNT(*) as count
+        FROM sys_user_login
+        <where>
+            <if test="account != null and account != ''">
+                AND account = #{account}
+            </if>
+        </where>
+        GROUP BY province
+        ORDER BY count DESC
+    </select>
+</mapper>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xu.home.mapper.blog.SysMenuMapper">
+
+    <resultMap id="BaseResultMap" type="com.xu.home.domain.blog.SysMenu">
+        <id property="id" column="id" jdbcType="INTEGER"/>
+        <result property="parentId" column="parent_id" jdbcType="INTEGER"/>
+        <result property="menuName" column="menu_name" jdbcType="VARCHAR"/>
+        <result property="menuCode" column="menu_code" jdbcType="VARCHAR"/>
+        <result property="menuType" column="menu_type" jdbcType="TINYINT"/>
+        <result property="path" column="path" jdbcType="VARCHAR"/>
+        <result property="component" column="component" jdbcType="VARCHAR"/>
+        <result property="icon" column="icon" jdbcType="VARCHAR"/>
+        <result property="sortOrder" column="sort_order" jdbcType="INTEGER"/>
+        <result property="visible" column="visible" jdbcType="TINYINT"/>
+        <result property="status" column="status" jdbcType="TINYINT"/>
+        <result property="permission" column="permission" jdbcType="VARCHAR"/>
+        <result property="isDelete" column="is_delete" jdbcType="TINYINT"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+        <result property="updateTime" column="update_time" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <select id="selectMenusByRoleIds" resultMap="BaseResultMap">
+        SELECT DISTINCT m.*
+        FROM sys_menu m
+        INNER JOIN sys_role_menu rm ON m.id = rm.menu_id
+        WHERE rm.role_id IN
+        <foreach collection="roleIds" item="roleId" open="(" separator="," close=")">
+            #{roleId}
+        </foreach>
+          AND m.status = 1
+          AND m.is_delete = 0
+        ORDER BY m.sort_order ASC
+    </select>
+
+    <select id="selectMenusByAccount" resultMap="BaseResultMap">
+        SELECT DISTINCT m.*
+        FROM sys_menu m
+        INNER JOIN sys_role_menu rm ON m.id = rm.menu_id
+        INNER JOIN sys_user_role ur ON rm.role_id = ur.role_id
+        WHERE ur.account = #{account}
+          AND m.status = 1
+          AND m.is_delete = 0
+        ORDER BY m.sort_order ASC
+    </select>
+
+    <select id="selectAllEnabledMenus" resultMap="BaseResultMap">
+        SELECT * FROM sys_menu
+        WHERE status = 1
+          AND is_delete = 0
+        ORDER BY sort_order ASC
+    </select>
+
+</mapper>

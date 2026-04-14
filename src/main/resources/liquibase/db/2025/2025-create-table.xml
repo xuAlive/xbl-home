@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+                   xmlns:pro="http://www.liquibase.org/xml/ns/pro" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-latest.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- 创建系统用户表 -->
+    <changeSet id="2025-001-create-sys-user" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `sys_user` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `account` VARCHAR(50) NOT NULL COMMENT '账号',
+                `phone` VARCHAR(20) DEFAULT NULL COMMENT '手机号',
+                `phone_verified` TINYINT DEFAULT 0 COMMENT '手机号是否验证 0-未验证(访客) 1-已验证(用户)',
+                `password` VARCHAR(255) NOT NULL COMMENT '密码',
+                `is_delete` TINYINT DEFAULT 0 COMMENT '是否删除 0-否 1-是',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_account` (`account`),
+                KEY `idx_phone` (`phone`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='系统用户表';
+        </sql>
+    </changeSet>
+
+    <!-- 创建系统用户详情表 -->
+    <changeSet id="2025-002-create-sys-user-info" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `sys_user_info` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `account` VARCHAR(50) NOT NULL COMMENT '账号',
+                `phone` VARCHAR(20) DEFAULT NULL COMMENT '手机号',
+                `name` VARCHAR(100) DEFAULT NULL COMMENT '昵称',
+                `user_name` VARCHAR(100) DEFAULT NULL COMMENT '真实姓名',
+                `birthday` DATE DEFAULT NULL COMMENT '出生日期',
+                `age` INT DEFAULT NULL COMMENT '年龄',
+                `sex` TINYINT DEFAULT NULL COMMENT '性别 0-女 1-男',
+                `email` VARCHAR(100) DEFAULT NULL COMMENT '邮箱',
+                `id_card` VARCHAR(20) DEFAULT NULL COMMENT '身份证',
+                `intro` VARCHAR(500) DEFAULT NULL COMMENT '简介',
+                `is_delete` TINYINT DEFAULT 0 COMMENT '是否删除 0-否 1-是',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_account` (`account`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='系统用户详情表';
+        </sql>
+    </changeSet>
+
+    <!-- 创建用户登录信息表 -->
+    <changeSet id="2025-003-create-sys-user-login" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `sys_user_login` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `account` VARCHAR(50) NOT NULL COMMENT '账号',
+                `ip` VARCHAR(50) DEFAULT NULL COMMENT '登录时IP',
+                `address` VARCHAR(200) DEFAULT NULL COMMENT '登录IP地址对应的地理位置',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                PRIMARY KEY (`id`),
+                KEY `idx_account` (`account`),
+                KEY `idx_create_time` (`create_time`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户登录信息表';
+        </sql>
+    </changeSet>
+
+    <!-- 创建角色表 -->
+    <changeSet id="2025-004-create-sys-role" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `sys_role` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `role_code` VARCHAR(50) NOT NULL COMMENT '角色编码(ADMIN/USER/GUEST)',
+                `role_name` VARCHAR(100) NOT NULL COMMENT '角色名称',
+                `description` VARCHAR(500) DEFAULT NULL COMMENT '角色描述',
+                `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0-禁用 1-启用',
+                `is_delete` TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除 0-否 1-是',
+                `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_role_code` (`role_code`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='系统角色表';
+        </sql>
+    </changeSet>
+
+    <!-- 插入默认角色数据 -->
+    <changeSet id="2025-005-insert-sys-role-data" author="xubaolin">
+        <sql>
+            INSERT INTO `sys_role` (`role_code`, `role_name`, `description`, `status`) VALUES
+            ('ADMIN', '管理员', '系统管理员，拥有所有权限', 1),
+            ('USER', '用户', '普通用户，已绑定手机号，拥有部分功能权限', 1),
+            ('GUEST', '访客', '访客用户，未绑定手机号，仅查看权限', 1);
+        </sql>
+    </changeSet>
+
+    <!-- 创建菜单表 -->
+    <changeSet id="2025-006-create-sys-menu" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `sys_menu` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `parent_id` INT NOT NULL DEFAULT 0 COMMENT '父菜单ID 0表示顶级菜单',
+                `menu_name` VARCHAR(100) NOT NULL COMMENT '菜单名称',
+                `menu_code` VARCHAR(100) NOT NULL COMMENT '菜单编码',
+                `menu_type` TINYINT NOT NULL COMMENT '菜单类型 1-目录 2-菜单 3-按钮',
+                `path` VARCHAR(200) DEFAULT NULL COMMENT '路由地址',
+                `component` VARCHAR(200) DEFAULT NULL COMMENT '组件路径',
+                `icon` VARCHAR(100) DEFAULT NULL COMMENT '菜单图标',
+                `sort_order` INT NOT NULL DEFAULT 0 COMMENT '排序号',
+                `visible` TINYINT NOT NULL DEFAULT 1 COMMENT '是否可见 0-隐藏 1-显示',
+                `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0-禁用 1-启用',
+                `permission` VARCHAR(200) DEFAULT NULL COMMENT '权限标识',
+                `is_delete` TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除 0-否 1-是',
+                `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_menu_code` (`menu_code`),
+                KEY `idx_parent_id` (`parent_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='系统菜单表';
+        </sql>
+    </changeSet>
+
+    <!-- 创建用户角色关联表 -->
+    <changeSet id="2025-007-create-sys-user-role" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `sys_user_role` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `account` VARCHAR(50) NOT NULL COMMENT '用户账号',
+                `role_id` INT NOT NULL COMMENT '角色ID',
+                `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_account_role` (`account`, `role_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户角色关联表';
+        </sql>
+    </changeSet>
+
+    <!-- 创建角色菜单关联表 -->
+    <changeSet id="2025-008-create-sys-role-menu" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `sys_role_menu` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `role_id` INT NOT NULL COMMENT '角色ID',
+                `menu_id` INT NOT NULL COMMENT '菜单ID',
+                `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_role_menu` (`role_id`, `menu_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='角色菜单关联表';
+        </sql>
+    </changeSet>
+
+    <!-- 创建权限表 -->
+    <changeSet id="2025-009-create-sys-permission" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `sys_permission` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `permission_code` VARCHAR(100) NOT NULL COMMENT '权限编码',
+                `permission_name` VARCHAR(100) NOT NULL COMMENT '权限名称',
+                `resource_type` VARCHAR(50) NOT NULL COMMENT '资源类型(API/BUTTON/DATA)',
+                `resource_path` VARCHAR(500) DEFAULT NULL COMMENT '资源路径',
+                `description` VARCHAR(500) DEFAULT NULL COMMENT '权限描述',
+                `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0-禁用 1-启用',
+                `is_delete` TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除 0-否 1-是',
+                `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_permission_code` (`permission_code`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='系统权限表';
+        </sql>
+    </changeSet>
+
+    <!-- 创建角色权限关联表 -->
+    <changeSet id="2025-010-create-sys-role-permission" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `sys_role_permission` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `role_id` INT NOT NULL COMMENT '角色ID',
+                `permission_id` INT NOT NULL COMMENT '权限ID',
+                `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_role_permission` (`role_id`, `permission_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='角色权限关联表';
+        </sql>
+    </changeSet>
+
+    <!-- 创建博客文章表 -->
+    <changeSet id="2025-011-create-blog-article-info" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `blog_article_info` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `account` VARCHAR(50) NOT NULL COMMENT '账号',
+                `title` VARCHAR(200) NOT NULL COMMENT '博客标题',
+                `intro` VARCHAR(500) DEFAULT NULL COMMENT '简介',
+                `img` TEXT DEFAULT NULL COMMENT '图片json数组',
+                `content` LONGTEXT DEFAULT NULL COMMENT '内容',
+                `status` TINYINT DEFAULT 0 COMMENT '状态 0-暂存 1-发布 -1-删除',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                KEY `idx_account` (`account`),
+                KEY `idx_status` (`status`),
+                KEY `idx_create_time` (`create_time`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='博客文章详情表';
+        </sql>
+    </changeSet>
+
+    <!-- 创建DeepSeek对话信息表 -->
+    <changeSet id="2025-012-create-deepseek-dialogue-info" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `deepseek_dialogue_info` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `dialogue_id` BIGINT NOT NULL COMMENT '对话ID',
+                `role` VARCHAR(50) NOT NULL COMMENT '角色',
+                `content` LONGTEXT DEFAULT NULL COMMENT '内容',
+                `account` VARCHAR(50) DEFAULT NULL COMMENT '用户账号',
+                `creat_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                KEY `idx_dialogue_id` (`dialogue_id`),
+                KEY `idx_account` (`account`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='DeepSeek对话信息表';
+        </sql>
+    </changeSet>
+
+    <!-- 创建博客评论表 -->
+    <changeSet id="2025-013-create-blog-comment" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `blog_comment` (
+                `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                `article_id` INT NOT NULL COMMENT '文章ID',
+                `parent_id` INT NOT NULL DEFAULT 0 COMMENT '父评论ID，0表示对文章的直接评论',
+                `content` VARCHAR(1000) NOT NULL COMMENT '评论内容',
+                `commenter_name` VARCHAR(100) DEFAULT NULL COMMENT '评论者昵称',
+                `commenter_account` VARCHAR(50) NOT NULL COMMENT '评论者账号',
+                `is_delete` TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除 0-否 1-是',
+                `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                KEY `idx_article_id` (`article_id`),
+                KEY `idx_parent_id` (`parent_id`),
+                KEY `idx_commenter_account` (`commenter_account`),
+                KEY `idx_create_time` (`create_time`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='博客评论表';
+        </sql>
+    </changeSet>
+
+    <!-- 创建小程序表 -->
+    <changeSet id="2025-014-create-miniapp" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `miniapp` (
+                                                     `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                                     `name` VARCHAR(100) NOT NULL COMMENT '名称',
+                `intro` VARCHAR(500) DEFAULT NULL COMMENT '简介',
+                `icon` VARCHAR(100) DEFAULT NULL COMMENT '图标',
+                `color` VARCHAR(20) DEFAULT '#409EFF' COMMENT '图标颜色',
+                `category` VARCHAR(50) DEFAULT NULL COMMENT '分类',
+                `tag_type` VARCHAR(20) DEFAULT 'primary' COMMENT '标签类型(primary/success/warning/danger/info)',
+                `route` VARCHAR(200) DEFAULT NULL COMMENT '前端路由',
+                `external_link` VARCHAR(500) DEFAULT NULL COMMENT '外链地址',
+                `sort_order` INT DEFAULT 0 COMMENT '排序号',
+                `is_delete` TINYINT DEFAULT 0 COMMENT '是否删除 0-否 1-是',
+                `create_time` DATE DEFAULT NULL COMMENT '创建时间',
+                `update_time` DATE DEFAULT NULL COMMENT '更新时间',
+                PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='小程序表';
+        </sql>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xu.home.mapper.blog.BlogArticleBrowsingHistoryMapper">
+
+    <resultMap id="HistoryResultMap" type="com.xu.home.param.blog.vo.blog.BlogArticleBrowsingHistoryVo">
+        <id property="id" column="id" jdbcType="INTEGER"/>
+        <result property="articleId" column="article_id" jdbcType="INTEGER"/>
+        <result property="title" column="title" jdbcType="VARCHAR"/>
+        <result property="author" column="author" jdbcType="VARCHAR"/>
+        <result property="articleCreateTime" column="article_create_time" jdbcType="TIMESTAMP"/>
+        <result property="lastViewTime" column="last_view_time" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <select id="selectHistoryListByAccount" resultMap="HistoryResultMap">
+        SELECT h.id,
+               h.article_id,
+               a.title,
+               a.account AS author,
+               a.create_time AS article_create_time,
+               h.last_view_time
+        FROM blog_article_browsing_history h
+        INNER JOIN blog_article_info a ON a.id = h.article_id
+        WHERE h.account = #{account}
+          AND a.status != -1
+        ORDER BY h.last_view_time DESC, h.id DESC
+    </select>
+</mapper>

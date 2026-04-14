@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+                   xmlns:pro="http://www.liquibase.org/xml/ns/pro" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd http://www.liquibase.org/xml/ns/pro http://www.liquibase.org/xml/ns/pro/liquibase-pro-latest.xsd http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="1766460369926-1" author="xubaolin">
+        <sql>
+            INSERT INTO `blog`.`sys_user`(`id`, `account`, `phone`, `phone_verified`, `password`, `is_delete`, `create_time`, `update_time`) VALUES (1, 'admin', '18333333333', 0, '123456', 0, now(), now());
+            INSERT INTO `blog`.`sys_user_info`(`id`, `account`, `phone`, `name`, `user_name`, `birthday`, `age`, `sex`, `email`, `id_card`, `intro`, `is_delete`, `create_time`, `update_time`) VALUES (1, 'admin', '18333333333', '川', '王木木', '1999-01-11', 26, 1, NULL, NULL, '我是管理员', 0, '2025-12-23 10:46:11', '2025-12-23 11:25:37');
+        </sql>
+    </changeSet>
+    <!-- 为admin账号分配ADMIN最高权限角色 -->
+    <changeSet id="2025-008-assign-admin-role" author="xubaolin">
+        <sql>
+            -- 为admin账号分配ADMIN角色（角色ID为1）
+            INSERT INTO sys_user_role (account, role_id, create_time)
+            SELECT 'admin', 1, NOW()
+            FROM DUAL
+            WHERE NOT EXISTS (
+                SELECT 1 FROM sys_user_role
+                WHERE account = 'admin' AND role_id = 1
+            );
+
+            -- 同时将admin账号的手机号设为已验证状态
+            UPDATE sys_user
+            SET phone_verified = 1
+            WHERE account = 'admin';
+        </sql>
+    </changeSet>
+
+    <!-- 初始化系统菜单数据 -->
+    <changeSet id="2025-009-insert-sys-menu-data" author="xubaolin" failOnError="false">
+        <sql>
+            -- 一级目录：首页
+            INSERT INTO sys_menu (id, parent_id, menu_name, menu_code, menu_type, path, component, icon, sort_order, visible, status) VALUES
+            (1, 0, '首页', 'HOME', 1, '/index', 'views/index.vue', 'el-icon-house', 1, 1, 1);
+
+            -- 首页子菜单
+            INSERT INTO sys_menu (id, parent_id, menu_name, menu_code, menu_type, path, component, icon, sort_order, visible, status) VALUES
+            (2, 1, '博客广场', 'HOME_BLOG_SQUARE', 2, '/index/home', 'views/home/home.vue', 'el-icon-reading', 1, 1, 1),
+            (3, 1, '小程序', 'HOME_MINIAPP', 2, '/index/miniapp', 'views/miniapp.vue', 'el-icon-cellphone', 2, 1, 1),
+            (4, 1, 'DeepSeek对话', 'HOME_DEEPSEEK', 2, '/index/deepseek', 'views/play/deepseek/deepseek.vue', 'el-icon-chat-dot-round', 3, 1, 1),
+            (5, -1, '邮件', 'HOME_MAIL', 2, '/index/mail', 'views/mail.vue', 'el-icon-message', 4, 1, 1),
+            (6, -1, '消息', 'HOME_MESSAGE', 2, '/index/message', 'views/message.vue', 'el-icon-bell', 5, 1, 1);
+
+            -- 一级目录：个人博客
+            INSERT INTO sys_menu (id, parent_id, menu_name, menu_code, menu_type, path, component, icon, sort_order, visible, status) VALUES
+            (7, 0, '个人博客', 'BLOG', 1, NULL, NULL, 'el-icon-edit', 2, 1, 1);
+
+            -- 个人博客子菜单
+            INSERT INTO sys_menu (id, parent_id, menu_name, menu_code, menu_type, path, component, icon, sort_order, visible, status) VALUES
+            (8, 7, '我的家园', 'BLOG_INFO', 2, '/index/blogInfo', 'views/blog/blogInfo.vue', 'el-icon-home-filled', 1, 1, 1),
+            (9, 7, '账号详情', 'BLOG_ACCOUNT_INFO', 2, '/index/accountInfo', 'views/system/accountInfo.vue', 'el-icon-info-filled', 2, 1, 1);
+
+            -- 一级目录：系统管理（仅管理员可见）
+            INSERT INTO sys_menu (id, parent_id, menu_name, menu_code, menu_type, path, component, icon, sort_order, visible, status) VALUES
+            (10, 0, '系统管理', 'SYSTEM', 1, NULL, NULL, 'el-icon-setting', 3, 1, 1);
+
+            -- 系统管理子菜单
+            INSERT INTO sys_menu (id, parent_id, menu_name, menu_code, menu_type, path, component, icon, sort_order, visible, status) VALUES
+            (11, 10, '账号管理', 'SYSTEM_ACCOUNT', 2, '/index/account', 'views/system/account.vue', 'el-icon-user', 1, 1, 1),
+            (12, 10, '登录信息', 'SYSTEM_LOGIN_LIST', 2, '/index/loginList', 'views/system/loginList.vue', 'el-icon-document', 2, 1, 1),
+            (13, 10, '菜单管理', 'SYSTEM_MENU', 2, '/index/menuManage', 'views/system/menuManage.vue', 'el-icon-menu', 3, 1, 1),
+            (14, 10, '角色管理', 'SYSTEM_ROLE', 2, '/index/roleManage', 'views/system/roleManage.vue', 'el-icon-avatar', 4, 1, 1),
+            (15, 10, '权限管理', 'SYSTEM_PERMISSION', 2, '/index/permissionManage', 'views/system/permissionManage.vue', 'el-icon-lock', 5, 1, 1);
+        </sql>
+    </changeSet>
+
+    <!-- 为角色分配菜单权限 -->
+    <changeSet id="2025-010-assign-role-menu" author="xubaolin" failOnError="false">
+        <sql>
+            -- ADMIN角色(id=1)拥有所有菜单(1-15)
+            INSERT INTO sys_role_menu (role_id, menu_id, create_time) VALUES
+            (1, 1, NOW()), (1, 2, NOW()), (1, 3, NOW()), (1, 4, NOW()), (1, 5, NOW()), (1, 6, NOW()),
+            (1, 7, NOW()), (1, 8, NOW()), (1, 9, NOW()),
+            (1, 10, NOW()), (1, 11, NOW()), (1, 12, NOW()), (1, 13, NOW()), (1, 14, NOW()), (1, 15, NOW());
+
+            -- USER角色(id=2)拥有首页和个人博客菜单(1-9)
+            INSERT INTO sys_role_menu (role_id, menu_id, create_time) VALUES
+            (2, 1, NOW()), (2, 2, NOW()), (2, 3, NOW()), (2, 4, NOW()), (2, 5, NOW()), (2, 6, NOW()),
+            (2, 7, NOW()), (2, 8, NOW()), (2, 9, NOW());
+
+            -- GUEST角色(id=3)拥有首页和个人博客菜单(1-9)
+            INSERT INTO sys_role_menu (role_id, menu_id, create_time) VALUES
+            (3, 1, NOW()), (3, 2, NOW()), (3, 3, NOW()), (3, 4, NOW()), (3, 5, NOW()), (3, 6, NOW()),
+            (3, 7, NOW()), (3, 8, NOW()), (3, 9, NOW());
+        </sql>
+    </changeSet>
+
+    <!-- 初始化系统权限数据 -->
+    <changeSet id="2025-011-insert-sys-permission-data" author="xubaolin" failOnError="false">
+        <sql>
+            -- 系统管理权限
+            INSERT INTO sys_permission (id, permission_code, permission_name, resource_type, resource_path, description, status) VALUES
+            (1, 'system:user:list', '用户列表', 'API', '/blog/sys/getUserList', '查看用户列表权限', 1),
+            (2, 'system:user:add', '新增用户', 'API', '/blog/sys/register', '新增用户权限', 1),
+            (3, 'system:user:update', '修改用户', 'API', '/blog/sys/updateUserInfo', '修改用户信息权限', 1),
+            (4, 'system:login:list', '登录记录', 'API', '/blog/sys/getLoginRecords', '查看登录记录权限', 1);
+
+            -- 菜单管理权限
+            INSERT INTO sys_permission (id, permission_code, permission_name, resource_type, resource_path, description, status) VALUES
+            (5, 'system:menu:list', '菜单列表', 'API', '/blog/menu/getAllMenus', '查看所有菜单权限', 1),
+            (6, 'system:menu:add', '新增菜单', 'API', '/blog/menu/add', '新增菜单权限', 1),
+            (7, 'system:menu:update', '修改菜单', 'API', '/blog/menu/update', '修改菜单权限', 1),
+            (8, 'system:menu:delete', '删除菜单', 'API', '/blog/menu/delete', '删除菜单权限', 1),
+            (9, 'system:menu:assign', '分配菜单', 'API', '/blog/menu/assignToRole', '为角色分配菜单权限', 1);
+
+            -- 角色管理权限
+            INSERT INTO sys_permission (id, permission_code, permission_name, resource_type, resource_path, description, status) VALUES
+            (10, 'system:role:list', '角色列表', 'API', '/blog/role/getAllRoles', '查看所有角色权限', 1),
+            (11, 'system:role:add', '新增角色', 'API', '/blog/role/add', '新增角色权限', 1),
+            (12, 'system:role:update', '修改角色', 'API', '/blog/role/update', '修改角色权限', 1),
+            (13, 'system:role:assign', '分配角色', 'API', '/blog/role/assignToUser', '为用户分配角色权限', 1);
+
+            -- 权限管理权限
+            INSERT INTO sys_permission (id, permission_code, permission_name, resource_type, resource_path, description, status) VALUES
+            (14, 'system:permission:list', '权限列表', 'API', '/blog/permission/getAllPermissions', '查看所有权限权限', 1),
+            (15, 'system:permission:add', '新增权限', 'API', '/blog/permission/add', '新增权限权限', 1),
+            (16, 'system:permission:update', '修改权限', 'API', '/blog/permission/update', '修改权限权限', 1),
+            (17, 'system:permission:assign', '分配权限', 'API', '/blog/permission/assignToRole', '为角色分配权限权限', 1);
+
+            -- 博客管理权限
+            INSERT INTO sys_permission (id, permission_code, permission_name, resource_type, resource_path, description, status) VALUES
+            (18, 'blog:article:list', '文章列表', 'API', '/blog/article/list', '查看文章列表权限', 1),
+            (19, 'blog:article:add', '发布文章', 'API', '/blog/article/add', '发布文章权限', 1),
+            (20, 'blog:article:update', '修改文章', 'API', '/blog/article/update', '修改文章权限', 1),
+            (21, 'blog:article:delete', '删除文章', 'API', '/blog/article/delete', '删除文章权限', 1);
+
+            -- DeepSeek权限
+            INSERT INTO sys_permission (id, permission_code, permission_name, resource_type, resource_path, description, status) VALUES
+            (22, 'play:deepseek:chat', 'DeepSeek对话', 'API', '/blog/deepseek/chat', 'DeepSeek对话权限', 1);
+        </sql>
+    </changeSet>
+
+    <!-- 为角色分配权限 -->
+    <changeSet id="2025-012-assign-role-permission" author="xubaolin" failOnError="false">
+        <sql>
+            -- ADMIN角色(id=1)拥有所有权限
+            INSERT INTO sys_role_permission (role_id, permission_id, create_time) VALUES
+            (1, 1, NOW()), (1, 2, NOW()), (1, 3, NOW()), (1, 4, NOW()), (1, 5, NOW()),
+            (1, 6, NOW()), (1, 7, NOW()), (1, 8, NOW()), (1, 9, NOW()), (1, 10, NOW()),
+            (1, 11, NOW()), (1, 12, NOW()), (1, 13, NOW()), (1, 14, NOW()), (1, 15, NOW()),
+            (1, 16, NOW()), (1, 17, NOW()), (1, 18, NOW()), (1, 19, NOW()), (1, 20, NOW()),
+            (1, 21, NOW()), (1, 22, NOW());
+
+            -- USER角色(id=2)拥有博客和DeepSeek权限
+            INSERT INTO sys_role_permission (role_id, permission_id, create_time) VALUES
+            (2, 18, NOW()), (2, 19, NOW()), (2, 20, NOW()), (2, 21, NOW()), (2, 22, NOW());
+
+            -- GUEST角色(id=3)只有查看文章权限
+            INSERT INTO sys_role_permission (role_id, permission_id, create_time) VALUES
+            (3, 18, NOW());
+        </sql>
+    </changeSet>
+
+
+
+    <!-- 初始化小程序数据 -->
+    <changeSet id="2025-014-insert-miniapp-data" author="xubaolin">
+        <sql>
+            INSERT INTO miniapp (name, intro, icon, color, category, tag_type, route, external_link, sort_order, is_delete, create_time, update_time) VALUES
+            ('DeepSeek对话', '智能AI对话助手，支持多轮对话和知识问答', 'ChatDotSquare', '#409EFF', 'AI工具', 'primary', '/index/deepseek', NULL, 1, 0, CURDATE(), CURDATE()),
+            ('百度翻译', '支持多语言翻译，提供专业准确的翻译服务', 'Document', '#67C23A', '实用工具', 'success', NULL, 'https://fanyi.baidu.com/mtpe-individual/multimodal?#/', 2, 0, CURDATE(), CURDATE()),
+            ('百度一下', '全球最大的中文搜索引擎，快速找到所需信息', 'Search', '#E6A23C', '搜索引擎', 'warning', NULL, 'https://www.baidu.com/index.htm', 3, 0, CURDATE(), CURDATE()),
+            ('日程管理', '个人日程安排和任务提醒工具', 'Calendar', '#F56C6C', '效率工具', 'danger', NULL, 'https://example.com/calendar', 4, 0, CURDATE(), CURDATE()),
+            ('订单系统', '订单管理系统，支持订单查询、处理和统计', 'ShoppingCart', '#909399', '管理系统', 'info', NULL, 'https://example.com/orders', 5, 0, CURDATE(), CURDATE()),
+            ('相册管理', '照片云存储和管理，支持分类和分享', 'Picture', '#409EFF', '存储工具', 'primary', NULL, 'https://example.com/photos', 6, 0, CURDATE(), CURDATE());
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

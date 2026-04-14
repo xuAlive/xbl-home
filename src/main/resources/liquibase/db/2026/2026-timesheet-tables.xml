@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="2026-ts-001" author="timesheet-app">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `timesheet_project` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `project_name` VARCHAR(100) NOT NULL COMMENT '项目名称',
+                `mode` TINYINT NOT NULL COMMENT '记录模式: 1-签到 2-人工记工',
+                `status` TINYINT DEFAULT 1 COMMENT '项目状态: 1-编辑中 2-已结束',
+                `creator_account` VARCHAR(100) NOT NULL COMMENT '创建者账号',
+                `creator_name` VARCHAR(100) DEFAULT NULL COMMENT '创建者姓名',
+                `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+                `finished_time` DATETIME DEFAULT NULL COMMENT '结束时间',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                `is_delete` TINYINT DEFAULT 0 COMMENT '是否删除',
+                PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='工时项目表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-ts-002" author="timesheet-app">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `timesheet_project_member` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `project_id` BIGINT NOT NULL COMMENT '项目ID',
+                `member_account` VARCHAR(100) NOT NULL COMMENT '成员账号',
+                `member_name` VARCHAR(100) NOT NULL COMMENT '成员姓名',
+                `join_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                `is_delete` TINYINT DEFAULT 0 COMMENT '是否删除',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_ts_member_project_account` (`project_id`, `member_account`),
+                KEY `idx_ts_member_project` (`project_id`),
+                KEY `idx_ts_member_account` (`member_account`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='项目成员表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-ts-003" author="timesheet-app">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `timesheet_attendance_record` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `project_id` BIGINT NOT NULL COMMENT '项目ID',
+                `member_id` BIGINT NOT NULL COMMENT '成员ID',
+                `member_account` VARCHAR(100) DEFAULT NULL COMMENT '成员账号',
+                `member_name` VARCHAR(100) DEFAULT NULL COMMENT '成员姓名',
+                `work_date` DATE NOT NULL COMMENT '工时日期',
+                `sign_in_time` DATETIME DEFAULT NULL COMMENT '签到时间',
+                `sign_out_time` DATETIME DEFAULT NULL COMMENT '离班签到时间',
+                `work_hours` DECIMAL(8,2) DEFAULT NULL COMMENT '出工时长',
+                `work_units` DECIMAL(6,2) DEFAULT NULL COMMENT '折算工数',
+                `record_status` TINYINT DEFAULT 1 COMMENT '记录状态: 1-待签离 2-已完成 3-已补签通过',
+                `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                `is_delete` TINYINT DEFAULT 0 COMMENT '是否删除',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_ts_att_project_member_date` (`project_id`, `member_id`, `work_date`),
+                KEY `idx_ts_att_project_member` (`project_id`, `member_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='签到工时记录表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-ts-004" author="timesheet-app">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `timesheet_makeup_request` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `project_id` BIGINT NOT NULL COMMENT '项目ID',
+                `member_id` BIGINT NOT NULL COMMENT '成员ID',
+                `member_account` VARCHAR(100) DEFAULT NULL COMMENT '成员账号',
+                `member_name` VARCHAR(100) DEFAULT NULL COMMENT '成员姓名',
+                `work_date` DATE NOT NULL COMMENT '工时日期',
+                `makeup_sign_in_time` DATETIME DEFAULT NULL COMMENT '补签到时间',
+                `makeup_sign_out_time` DATETIME DEFAULT NULL COMMENT '补离班时间',
+                `reason` VARCHAR(500) DEFAULT NULL COMMENT '补签原因',
+                `approval_status` TINYINT DEFAULT 1 COMMENT '审批状态: 1-待审批 2-通过 3-拒绝',
+                `approver_account` VARCHAR(100) DEFAULT NULL COMMENT '审批人账号',
+                `approver_name` VARCHAR(100) DEFAULT NULL COMMENT '审批人姓名',
+                `approval_remark` VARCHAR(500) DEFAULT NULL COMMENT '审批备注',
+                `approval_time` DATETIME DEFAULT NULL COMMENT '审批时间',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                `is_delete` TINYINT DEFAULT 0 COMMENT '是否删除',
+                PRIMARY KEY (`id`),
+                KEY `idx_ts_makeup_project` (`project_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='补签申请表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-ts-005" author="timesheet-app">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `timesheet_manual_worklog` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `project_id` BIGINT NOT NULL COMMENT '项目ID',
+                `member_id` BIGINT NOT NULL COMMENT '成员ID',
+                `member_account` VARCHAR(100) DEFAULT NULL COMMENT '成员账号',
+                `member_name` VARCHAR(100) DEFAULT NULL COMMENT '成员姓名',
+                `work_date` DATE NOT NULL COMMENT '工时日期',
+                `work_units` DECIMAL(6,2) NOT NULL COMMENT '工数',
+                `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+                `maintained_by` VARCHAR(100) DEFAULT NULL COMMENT '维护人账号',
+                `maintained_by_name` VARCHAR(100) DEFAULT NULL COMMENT '维护人姓名',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                `is_delete` TINYINT DEFAULT 0 COMMENT '是否删除',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_ts_manual_project_member_date` (`project_id`, `member_id`, `work_date`),
+                KEY `idx_ts_manual_project_member` (`project_id`, `member_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='人工记工表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-ts-006" author="timesheet-app">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `timesheet_settlement` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `project_id` BIGINT NOT NULL COMMENT '项目ID',
+                `settlement_no` VARCHAR(50) NOT NULL COMMENT '结算编号',
+                `settlement_type` TINYINT NOT NULL COMMENT '结算类型: 1-单人 2-批量 3-项目结束',
+                `settled_by` VARCHAR(100) DEFAULT NULL COMMENT '结算人账号',
+                `settled_by_name` VARCHAR(100) DEFAULT NULL COMMENT '结算人姓名',
+                `item_count` INT DEFAULT NULL COMMENT '明细数',
+                `total_work_hours` DECIMAL(10,2) DEFAULT NULL COMMENT '总工时',
+                `total_work_units` DECIMAL(10,2) DEFAULT NULL COMMENT '总工数',
+                `unit_salary` DECIMAL(10,2) DEFAULT NULL COMMENT '每工薪资',
+                `total_salary` DECIMAL(12,2) DEFAULT NULL COMMENT '总薪资',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_ts_settlement_no` (`settlement_no`),
+                KEY `idx_ts_settlement_project` (`project_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='结算主表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-ts-007" author="timesheet-app">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `timesheet_settlement_item` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `settlement_id` BIGINT NOT NULL COMMENT '结算ID',
+                `project_id` BIGINT NOT NULL COMMENT '项目ID',
+                `member_id` BIGINT DEFAULT NULL COMMENT '成员ID',
+                `member_account` VARCHAR(100) DEFAULT NULL COMMENT '成员账号',
+                `member_name` VARCHAR(100) DEFAULT NULL COMMENT '成员姓名',
+                `work_date` DATE DEFAULT NULL COMMENT '工时日期',
+                `source_mode` TINYINT DEFAULT NULL COMMENT '来源模式: 1-签到 2-人工记工',
+                `source_record_id` BIGINT DEFAULT NULL COMMENT '来源记录ID',
+                `work_hours` DECIMAL(10,2) DEFAULT NULL COMMENT '工时',
+                `work_units` DECIMAL(10,2) DEFAULT NULL COMMENT '工数',
+                `unit_salary` DECIMAL(10,2) DEFAULT NULL COMMENT '每工薪资',
+                `salary_amount` DECIMAL(12,2) DEFAULT NULL COMMENT '薪资金额',
+                `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                PRIMARY KEY (`id`),
+                KEY `idx_ts_settlement_item_settlement` (`settlement_id`),
+                KEY `idx_ts_settlement_item_member` (`member_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='结算明细表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-ts-008" author="timesheet-app">
+        <sql>
+            SET @ts_member_add_phone = (
+                SELECT IF(
+                    EXISTS (
+                        SELECT 1
+                        FROM information_schema.COLUMNS
+                        WHERE TABLE_SCHEMA = DATABASE()
+                          AND TABLE_NAME = 'timesheet_project_member'
+                          AND COLUMN_NAME = 'member_phone'
+                    ),
+                    'SELECT 1',
+                    'ALTER TABLE `timesheet_project_member` ADD COLUMN `member_phone` VARCHAR(20) DEFAULT NULL COMMENT ''成员手机号'' AFTER `member_name`'
+                )
+            );
+            PREPARE stmt FROM @ts_member_add_phone;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+
+            SET @ts_member_drop_unique = (
+                SELECT IF(
+                    EXISTS (
+                        SELECT 1
+                        FROM information_schema.STATISTICS
+                        WHERE TABLE_SCHEMA = DATABASE()
+                          AND TABLE_NAME = 'timesheet_project_member'
+                          AND INDEX_NAME = 'uk_ts_member_project_account'
+                    ),
+                    'ALTER TABLE `timesheet_project_member` DROP INDEX `uk_ts_member_project_account`',
+                    'SELECT 1'
+                )
+            );
+            PREPARE stmt FROM @ts_member_drop_unique;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+
+            ALTER TABLE `timesheet_project_member`
+                MODIFY COLUMN `member_account` VARCHAR(100) DEFAULT NULL COMMENT '成员账号';
+
+            SET @ts_member_add_phone_index = (
+                SELECT IF(
+                    EXISTS (
+                        SELECT 1
+                        FROM information_schema.STATISTICS
+                        WHERE TABLE_SCHEMA = DATABASE()
+                          AND TABLE_NAME = 'timesheet_project_member'
+                          AND INDEX_NAME = 'idx_ts_member_phone'
+                    ),
+                    'SELECT 1',
+                    'CREATE INDEX `idx_ts_member_phone` ON `timesheet_project_member` (`member_phone`)'
+                )
+            );
+            PREPARE stmt FROM @ts_member_add_phone_index;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
