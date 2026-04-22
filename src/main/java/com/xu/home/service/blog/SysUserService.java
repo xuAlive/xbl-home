@@ -2,6 +2,7 @@ package com.xu.home.service.blog;
 
 import com.xu.home.domain.blog.SysUser;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.xu.home.param.blog.po.sys.ChangePasswordPo;
 import com.xu.home.param.blog.po.sys.LoginUserPo;
 import com.xu.home.param.common.response.Response;
 
@@ -26,4 +27,12 @@ public interface SysUserService extends IService<SysUser> {
      * @return
      */
     Response register(LoginUserPo po);
+
+    /**
+     * 修改当前登录用户密码
+     * @param account 当前登录账号
+     * @param po 修改密码参数
+     * @return 处理结果
+     */
+    Response changePassword(String account, ChangePasswordPo po);
 }

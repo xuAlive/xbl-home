@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="2026-medical-knowledge-001" author="codex">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `medical_knowledge_source` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `account` VARCHAR(50) NOT NULL COMMENT '创建人账号',
+                `source_name` VARCHAR(255) NOT NULL COMMENT '来源名称',
+                `source_type` TINYINT NOT NULL COMMENT '来源类型: 1-本地路径 2-上传文件',
+                `file_format` VARCHAR(20) NOT NULL COMMENT '文件格式',
+                `file_size` BIGINT DEFAULT 0 COMMENT '文件大小',
+                `file_hash` VARCHAR(64) DEFAULT NULL COMMENT '文件哈希',
+                `local_path` VARCHAR(1000) DEFAULT NULL COMMENT '本地路径',
+                `storage_path` VARCHAR(1000) NOT NULL COMMENT '服务端存储路径',
+                `parse_status` TINYINT DEFAULT 1 COMMENT '解析状态: 1-待执行 2-执行中 3-成功 4-失败',
+                `extract_status` TINYINT DEFAULT 1 COMMENT '提取状态: 1-待执行 2-执行中 3-成功 4-失败',
+                `chapter_count` INT DEFAULT 0 COMMENT '章节数',
+                `chunk_count` INT DEFAULT 0 COMMENT '文本块数',
+                `knowledge_count` INT DEFAULT 0 COMMENT '知识条目数',
+                `error_message` VARCHAR(2000) DEFAULT NULL COMMENT '异常信息',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                `is_delete` TINYINT DEFAULT 0 COMMENT '删除标记',
+                PRIMARY KEY (`id`),
+                KEY `idx_medical_knowledge_source_account` (`account`),
+                KEY `idx_medical_knowledge_source_status` (`parse_status`, `extract_status`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='医疗知识库来源表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-medical-knowledge-002" author="codex">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `medical_knowledge_task` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `source_id` BIGINT NOT NULL COMMENT '来源ID',
+                `task_type` TINYINT NOT NULL COMMENT '任务类型: 1-导入提取 2-重新提取',
+                `task_status` TINYINT DEFAULT 1 COMMENT '任务状态: 1-待执行 2-执行中 3-成功 4-失败',
+                `model_name` VARCHAR(100) DEFAULT NULL COMMENT '模型名称',
+                `prompt_version` VARCHAR(50) DEFAULT NULL COMMENT '提示词版本',
+                `result_message` VARCHAR(2000) DEFAULT NULL COMMENT '结果消息',
+                `start_time` DATETIME DEFAULT NULL COMMENT '开始时间',
+                `finish_time` DATETIME DEFAULT NULL COMMENT '结束时间',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                KEY `idx_medical_knowledge_task_source` (`source_id`),
+                KEY `idx_medical_knowledge_task_status` (`task_status`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='医疗知识库任务表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-medical-knowledge-003" author="codex">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `medical_knowledge_chunk` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `source_id` BIGINT NOT NULL COMMENT '来源ID',
+                `chapter_no` INT DEFAULT NULL COMMENT '章节序号',
+                `chapter_title` VARCHAR(255) DEFAULT NULL COMMENT '章节标题',
+                `page_from` INT DEFAULT NULL COMMENT '起始页码',
+                `page_to` INT DEFAULT NULL COMMENT '结束页码',
+                `chunk_no` INT NOT NULL COMMENT '分块序号',
+                `raw_content` LONGTEXT COMMENT '原始内容',
+                `clean_content` LONGTEXT COMMENT '清洗后内容',
+                `content_hash` VARCHAR(64) DEFAULT NULL COMMENT '内容哈希',
+                `token_estimate` INT DEFAULT 0 COMMENT '估算token数',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_medical_knowledge_chunk_source_chunk` (`source_id`, `chunk_no`),
+                KEY `idx_medical_knowledge_chunk_source` (`source_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='医疗知识库文本分块表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-medical-knowledge-004" author="codex">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `medical_knowledge_item` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `source_id` BIGINT NOT NULL COMMENT '来源ID',
+                `item_type` VARCHAR(50) NOT NULL COMMENT '知识类型',
+                `title` VARCHAR(255) NOT NULL COMMENT '标题',
+                `keywords` VARCHAR(1000) DEFAULT NULL COMMENT '关键词',
+                `department` VARCHAR(100) DEFAULT NULL COMMENT '科室',
+                `summary` TEXT COMMENT '摘要',
+                `content` LONGTEXT COMMENT '知识正文',
+                `structured_data` LONGTEXT COMMENT '结构化数据JSON',
+                `confidence_score` DECIMAL(6,4) DEFAULT NULL COMMENT '置信度',
+                `dedup_key` VARCHAR(128) DEFAULT NULL COMMENT '去重键',
+                `review_status` TINYINT DEFAULT 0 COMMENT '审核状态',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                `is_delete` TINYINT DEFAULT 0 COMMENT '删除标记',
+                PRIMARY KEY (`id`),
+                KEY `idx_medical_knowledge_item_source` (`source_id`),
+                KEY `idx_medical_knowledge_item_title` (`title`),
+                KEY `idx_medical_knowledge_item_dedup` (`dedup_key`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='医疗知识库条目表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-medical-knowledge-005" author="codex">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `medical_knowledge_item_ref` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `knowledge_item_id` BIGINT NOT NULL COMMENT '知识条目ID',
+                `chunk_id` BIGINT NOT NULL COMMENT '文本块ID',
+                `quote_text` TEXT COMMENT '引用原文',
+                `sort_order` INT DEFAULT 1 COMMENT '排序号',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                PRIMARY KEY (`id`),
+                KEY `idx_medical_knowledge_item_ref_item` (`knowledge_item_id`),
+                KEY `idx_medical_knowledge_item_ref_chunk` (`chunk_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='医疗知识条目引用表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-medical-knowledge-006" author="codex">
+        <sql>
+            INSERT INTO miniapp (name, intro, icon, color, category, tag_type, route, external_link, sort_order, is_delete, create_time, update_time)
+            SELECT '医疗知识库', '导入医疗书籍并由 AI 清洗提取，沉淀为可检索、可溯源的知识条目', 'Reading', '#0F766E', 'AI工具', 'success', '/index/medicalKnowledge', NULL, 10, 0, NOW(), NOW()
+            FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM miniapp WHERE name = '医疗知识库');
+
+            UPDATE miniapp
+            SET intro = '导入医疗书籍并由 AI 清洗提取，沉淀为可检索、可溯源的知识条目',
+                icon = 'Reading',
+                color = '#0F766E',
+                category = 'AI工具',
+                tag_type = 'success',
+                route = '/index/medicalKnowledge',
+                external_link = NULL,
+                sort_order = 10,
+                is_delete = 0,
+                update_time = NOW()
+            WHERE name = '医疗知识库';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

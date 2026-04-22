@@ -109,8 +109,11 @@ public class BaZiUtil {
         result.put("lunarMonth", lunarInfo.lunarMonth());
         result.put("lunarDay", lunarInfo.lunarDay());
         result.put("lunarText", lunarInfo.lunarText());
+        result.put("inputLunarText", lunarInfo.lunarText());
         result.put("solarTerm", lunarInfo.solarTerm());
         result.put("algorithm", precise ? "solar-term" : "legacy");
+        result.put("solarDate", birthDate.toString());
+        result.put("calendarType", "solar");
 
         return result;
     }

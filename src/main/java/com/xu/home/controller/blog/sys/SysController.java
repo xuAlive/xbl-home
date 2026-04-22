@@ -2,6 +2,7 @@ package com.xu.home.controller.blog.sys;
 
 import com.xu.home.Interceptor.common.annotation.RequirePermission;
 import com.xu.home.dao.blog.SysUserDao;
+import com.xu.home.param.blog.po.sys.ChangePasswordPo;
 import com.xu.home.param.blog.po.sys.LoginUserPo;
 import com.xu.home.param.blog.po.sys.UserInfoPo;
 import com.xu.home.param.blog.vo.sys.LoginLocationStatsVO;
@@ -66,6 +67,15 @@ public class SysController {
             return Response.error("无权修改其他用户信息");
         }
         return sysUserInfoService.updateUserInfo(po);
+    }
+
+    @PostMapping("/changePassword")
+    public Response changePassword(@RequestBody ChangePasswordPo po) {
+        String currentAccount = SessionUtil.getCurrentAccount();
+        if (StringUtils.isBlank(currentAccount)) {
+            return Response.error("未登录");
+        }
+        return sysUserService.changePassword(currentAccount, po);
     }
 
     /**

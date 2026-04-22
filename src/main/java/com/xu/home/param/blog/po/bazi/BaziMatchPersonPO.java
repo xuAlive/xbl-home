@@ -10,5 +10,6 @@ public class BaziMatchPersonPO {
     private Integer birthDay;
     private String birthTime;
     private Boolean leapMonth;
+    private String calendarType;
     private String gender;
 }

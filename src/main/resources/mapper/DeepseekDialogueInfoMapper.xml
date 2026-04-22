@@ -20,7 +20,7 @@
     </sql>
 
     <select id="selectCompletion" resultType="com.xu.home.param.blog.vo.ds.CompletionVO">
-        select role, content, dialogue_id as dialogueId
+        select role, content, dialogue_id as dialogueId, creat_time as createTime
         from deepseek_dialogue_info
         where dialogue_id = #{dialogueId}
         <if test="account != null and account != ''">
@@ -35,7 +35,8 @@
             CASE
                 WHEN LENGTH(t.content) > 10 THEN SUBSTRING(t.content, 1, 10)
                 ELSE t.content
-            END as content
+            END as content,
+            t.creat_time as createTime
         FROM deepseek_dialogue_info t
         WHERE t.account = #{account}
             AND t.id IN (

@@ -15,7 +15,9 @@
     <include file="db/2026/2026-system-message.xml" relativeToChangelogFile="true"/>
     <include file="db/2026/2026-update.xml" relativeToChangelogFile="true"/>
     <include file="db/2026/2026-calendar-tables.xml" relativeToChangelogFile="true"/>
+    <include file="db/2026/2026-book-crawler-tables.xml" relativeToChangelogFile="true"/>
     <include file="db/2026/2026-schedule-tables.xml" relativeToChangelogFile="true"/>
     <include file="db/2026/2026-timesheet-tables.xml" relativeToChangelogFile="true"/>
+    <include file="db/2026/2026-medical-knowledge-tables.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

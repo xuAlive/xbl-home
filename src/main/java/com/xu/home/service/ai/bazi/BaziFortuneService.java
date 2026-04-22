@@ -2,12 +2,17 @@ package com.xu.home.service.ai.bazi;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import com.xu.home.domain.blog.BaziMarriageRecord;
 import com.xu.home.domain.blog.BaziFortuneRecord;
 import com.xu.home.param.blog.po.bazi.BaziFortunePO;
 import com.xu.home.param.blog.po.bazi.BaziMarriagePO;
 import com.xu.home.param.blog.po.bazi.BaziMatchPersonPO;
 import com.xu.home.param.blog.vo.bazi.BaziFortuneHistoryVO;
 import com.xu.home.param.blog.vo.bazi.BaziFortuneRecordVO;
+import com.xu.home.param.blog.vo.bazi.BaziMarriageHistoryVO;
+import com.xu.home.param.blog.vo.bazi.BaziMarriagePersonVO;
+import com.xu.home.param.blog.vo.bazi.BaziMarriageRecordVO;
+import com.xu.home.service.blog.BaziMarriageRecordService;
 import com.xu.home.service.blog.BaziFortuneRecordService;
 import com.xu.home.utils.BaZiUtil;
 import com.xu.home.utils.DeepSeekAPIUtil;
@@ -41,23 +46,22 @@ public class BaziFortuneService {
     private static final ZoneId ZONE_ID = ZoneId.systemDefault();
 
     private final BaziFortuneRecordService baziFortuneRecordService;
+    private final BaziMarriageRecordService baziMarriageRecordService;
     private final DeepSeekAPIUtil deepSeekAPIUtil;
 
-    public BaziFortuneService(BaziFortuneRecordService baziFortuneRecordService, DeepSeekAPIUtil deepSeekAPIUtil) {
+    public BaziFortuneService(
+            BaziFortuneRecordService baziFortuneRecordService,
+            BaziMarriageRecordService baziMarriageRecordService,
+            DeepSeekAPIUtil deepSeekAPIUtil
+    ) {
         this.baziFortuneRecordService = baziFortuneRecordService;
+        this.baziMarriageRecordService = baziMarriageRecordService;
         this.deepSeekAPIUtil = deepSeekAPIUtil;
     }
 
     public SseEmitter streamFortune(BaziFortunePO po, String account) {
         ParsedInput input = parseInput(po);
-        Map<String, Object> baziResult = BaZiUtil.calculateFromLunar(
-                input.birthYear(),
-                input.birthMonth(),
-                input.birthDay(),
-                input.leapMonth(),
-                input.birthDateTime().getHour(),
-                input.birthDateTime().getMinute()
-        );
+        Map<String, Object> baziResult = calculateSingleBazi(input);
         String prompt = buildPrompt(input, baziResult);
         BaziFortuneRecord record = createProcessingRecord(account, input, baziResult, prompt);
         SseEmitter emitter = new SseEmitter(300000L);
@@ -65,7 +69,7 @@ public class BaziFortuneService {
         return emitter;
     }
 
-    public SseEmitter streamMarriage(BaziMarriagePO po) {
+    public SseEmitter streamMarriage(BaziMarriagePO po, String account) {
         PersonInput personA = parseMatchPerson(po == null ? null : po.getPersonA(), "甲方");
         PersonInput personB = parseMatchPerson(po == null ? null : po.getPersonB(), "乙方");
         String question = po != null && StringUtils.hasText(po.getQuestion()) ? po.getQuestion().trim() : null;
@@ -73,9 +77,10 @@ public class BaziFortuneService {
         Map<String, Object> personABazi = calculateBazi(personA);
         Map<String, Object> personBBazi = calculateBazi(personB);
         String prompt = buildMarriagePrompt(personA, personABazi, personB, personBBazi, question);
+        BaziMarriageRecord record = createMarriageProcessingRecord(account, personA, personABazi, personB, personBBazi, question, prompt);
 
         SseEmitter emitter = new SseEmitter(300000L);
-        CompletableFuture.runAsync(() -> doMarriageStream(personA, personABazi, personB, personBBazi, prompt, emitter), STREAM_EXECUTOR);
+        CompletableFuture.runAsync(() -> doMarriageStream(record, personA, personABazi, personB, personBBazi, prompt, emitter), STREAM_EXECUTOR);
         return emitter;
     }
 
@@ -96,6 +101,23 @@ public class BaziFortuneService {
         return toDetailVO(record);
     }
 
+    public List<BaziMarriageHistoryVO> getMarriageHistory(String account) {
+        List<BaziMarriageRecord> records = baziMarriageRecordService.getRecentRecords(account, 20);
+        List<BaziMarriageHistoryVO> result = new ArrayList<>();
+        for (BaziMarriageRecord record : records) {
+            result.add(toMarriageHistoryVO(record));
+        }
+        return result;
+    }
+
+    public BaziMarriageRecordVO getMarriageDetail(Long id, String account) {
+        BaziMarriageRecord record = baziMarriageRecordService.getOwnedRecord(id, account);
+        if (record == null) {
+            throw new RuntimeException("记录不存在");
+        }
+        return toMarriageDetailVO(record);
+    }
+
     private void doStream(BaziFortuneRecord record, Map<String, Object> baziResult, String prompt, SseEmitter emitter) {
         StringBuilder answer = new StringBuilder();
         try {
@@ -114,9 +136,12 @@ public class BaziFortuneService {
             body.put("stream", true);
             body.put("messages", List.of(systemMessage, userMessage));
 
-            deepSeekAPIUtil.streamCompletions(body.toJSONString(), delta -> {
-                answer.append(delta);
-                sendEvent(emitter, "delta", Map.of("content", delta));
+            deepSeekAPIUtil.streamChatCompletions(body.toJSONString(), chunk -> {
+                if (!StringUtils.hasText(chunk.getContent())) {
+                    return;
+                }
+                answer.append(chunk.getContent());
+                sendEvent(emitter, "delta", Map.of("content", chunk.getContent()));
             });
 
             record.setFortuneContent(answer.toString());
@@ -141,6 +166,7 @@ public class BaziFortuneService {
     }
 
     private void doMarriageStream(
+            BaziMarriageRecord record,
             PersonInput personA,
             Map<String, Object> personABazi,
             PersonInput personB,
@@ -150,7 +176,7 @@ public class BaziFortuneService {
     ) {
         StringBuilder answer = new StringBuilder();
         try {
-            sendEvent(emitter, "meta", buildMarriageMeta(personA, personABazi, personB, personBBazi));
+            sendEvent(emitter, "meta", buildMarriageMeta(record.getId(), personA, personABazi, personB, personBBazi));
 
             JSONObject systemMessage = new JSONObject();
             systemMessage.put("role", "system");
@@ -165,15 +191,26 @@ public class BaziFortuneService {
             body.put("stream", true);
             body.put("messages", List.of(systemMessage, userMessage));
 
-            deepSeekAPIUtil.streamCompletions(body.toJSONString(), delta -> {
-                answer.append(delta);
-                sendEvent(emitter, "delta", Map.of("content", delta));
+            deepSeekAPIUtil.streamChatCompletions(body.toJSONString(), chunk -> {
+                if (!StringUtils.hasText(chunk.getContent())) {
+                    return;
+                }
+                answer.append(chunk.getContent());
+                sendEvent(emitter, "delta", Map.of("content", chunk.getContent()));
             });
 
-            sendEvent(emitter, "done", Map.of("content", answer.toString()));
+            record.setFortuneContent(answer.toString());
+            record.setStatus("SUCCESS");
+            record.setErrorMessage(null);
+            baziMarriageRecordService.updateById(record);
+            sendEvent(emitter, "done", Map.of("recordId", record.getId(), "content", answer.toString()));
             emitter.complete();
         } catch (Exception e) {
             log.error("合八字姻缘流式输出失败", e);
+            record.setFortuneContent(answer.toString());
+            record.setStatus("FAILED");
+            record.setErrorMessage(e.getMessage());
+            baziMarriageRecordService.updateById(record);
             try {
                 sendEvent(emitter, "error", Map.of("message", StringUtils.hasText(e.getMessage()) ? e.getMessage() : "生成失败"));
             } catch (Exception ignored) {
@@ -207,20 +244,21 @@ public class BaziFortuneService {
         if (birthYear < 1900 || birthYear > 2100) {
             throw new IllegalArgumentException("当前仅支持 1900-2100 年之间的日期");
         }
-        if (birthMonth < 1 || birthMonth > 12 || birthDay < 1 || birthDay > 30) {
-            throw new IllegalArgumentException("农历月份或日期不合法");
-        }
-
         String gender = po.getGender().trim();
         if (!"男".equals(gender) && !"女".equals(gender)) {
             throw new IllegalArgumentException("性别仅支持“男”或“女”");
         }
+        String calendarType = resolveCalendarType(po.getCalendarType());
+        validateBirthDate(calendarType, birthYear, birthMonth, birthDay, "出生日期");
         String question = StringUtils.hasText(po.getQuestion()) ? po.getQuestion().trim() : null;
+        String name = StringUtils.hasText(po.getName()) ? po.getName().trim() : null;
         return new ParsedInput(
+                name,
                 birthYear,
                 birthMonth,
                 birthDay,
                 Boolean.TRUE.equals(po.getLeapMonth()),
+                calendarType,
                 LocalDateTime.of(LocalDate.of(2000, 1, 1), birthTime),
                 gender,
                 question
@@ -254,9 +292,6 @@ public class BaziFortuneService {
         if (birthYear < 1900 || birthYear > 2100) {
             throw new IllegalArgumentException(fallbackName + "当前仅支持 1900-2100 年之间的日期");
         }
-        if (birthMonth < 1 || birthMonth > 12 || birthDay < 1 || birthDay > 30) {
-            throw new IllegalArgumentException(fallbackName + "农历月份或日期不合法");
-        }
 
         String gender = po.getGender().trim();
         if (!"男".equals(gender) && !"女".equals(gender)) {
@@ -264,18 +299,30 @@ public class BaziFortuneService {
         }
 
         String name = StringUtils.hasText(po.getName()) ? po.getName().trim() : fallbackName;
+        String calendarType = resolveCalendarType(po.getCalendarType());
+        validateBirthDate(calendarType, birthYear, birthMonth, birthDay, fallbackName + "出生日期");
         return new PersonInput(
                 name,
                 birthYear,
                 birthMonth,
                 birthDay,
                 Boolean.TRUE.equals(po.getLeapMonth()),
+                calendarType,
                 LocalDateTime.of(LocalDate.of(2000, 1, 1), birthTime),
                 gender
         );
     }
 
     private Map<String, Object> calculateBazi(PersonInput input) {
+        if ("solar".equals(input.calendarType())) {
+            return BaZiUtil.calculate(
+                    input.birthYear(),
+                    input.birthMonth(),
+                    input.birthDay(),
+                    input.birthDateTime().getHour(),
+                    input.birthDateTime().getMinute()
+            );
+        }
         return BaZiUtil.calculateFromLunar(
                 input.birthYear(),
                 input.birthMonth(),
@@ -294,9 +341,9 @@ public class BaziFortuneService {
         LocalTime time = input.birthDateTime().toLocalTime();
         LocalDateTime solarDateTime = LocalDateTime.of(solarDate, time);
         record.setBirthDatetime(Date.from(solarDateTime.atZone(ZONE_ID).toInstant()));
-        record.setInputBirthDate(formatLunarDate(input.birthYear(), input.birthMonth(), input.birthDay()));
+        record.setInputBirthDate(formatInputBirthDate(input.calendarType(), input.birthYear(), input.birthMonth(), input.birthDay()));
         record.setInputBirthTime(time.format(TIME_FORMATTER));
-        record.setIsLeapMonth(input.leapMonth() ? 1 : 0);
+        record.setIsLeapMonth("lunar".equals(input.calendarType()) && input.leapMonth() ? 1 : 0);
         record.setQuestion(input.question());
         record.setYearPillar((String) baziResult.get("yearPillar"));
         record.setMonthPillar((String) baziResult.get("monthPillar"));
@@ -313,13 +360,38 @@ public class BaziFortuneService {
         return record;
     }
 
+    private BaziMarriageRecord createMarriageProcessingRecord(
+            String account,
+            PersonInput personA,
+            Map<String, Object> personABazi,
+            PersonInput personB,
+            Map<String, Object> personBBazi,
+            String question,
+            String prompt
+    ) {
+        BaziMarriageRecord record = new BaziMarriageRecord();
+        record.setAccount(account);
+        fillMarriagePersonRecord(record, true, personA, personABazi);
+        fillMarriagePersonRecord(record, false, personB, personBBazi);
+        record.setQuestion(question);
+        record.setPromptText(prompt);
+        record.setModelName(deepSeekAPIUtil.getChatModel());
+        record.setStatus("PROCESSING");
+        baziMarriageRecordService.save(record);
+        return record;
+    }
+
     private String buildPrompt(ParsedInput input, Map<String, Object> baziResult) {
         StringBuilder prompt = new StringBuilder();
-        prompt.append("请基于以下生辰八字信息做命理分析，并严格使用 Markdown 输出：\n");
+        prompt.append("请基于以下生辰八字信息做命理分析\n");
+        if (StringUtils.hasText(input.name())) {
+            prompt.append("姓名：").append(input.name()).append("\n");
+        }
         prompt.append("性别：").append(input.gender()).append("\n");
-        prompt.append("输入日期类型：农历\n");
-        prompt.append("农历出生时间：").append(formatLunarDate(input.birthYear(), input.birthMonth(), input.birthDay()))
-                .append(input.leapMonth() ? "（闰月）" : "")
+        prompt.append("输入日期类型：").append(calendarTypeLabel(input.calendarType())).append("\n");
+        prompt.append(calendarTypeLabel(input.calendarType())).append("出生时间：")
+                .append(formatRawBirthDate(input.birthYear(), input.birthMonth(), input.birthDay()))
+                .append("lunar".equals(input.calendarType()) && input.leapMonth() ? "（闰月）" : "")
                 .append(" ")
                 .append(input.birthDateTime().toLocalTime().format(TIME_FORMATTER))
                 .append("\n");
@@ -354,7 +426,7 @@ public class BaziFortuneService {
             String question
     ) {
         StringBuilder prompt = new StringBuilder();
-        prompt.append("请基于以下双方生辰八字信息做合八字姻缘分析，并严格使用 Markdown 输出：\n");
+        prompt.append("请基于以下双方生辰八字信息做合八字姻缘分析\n");
         appendMarriagePerson(prompt, "甲方", personA, personABazi);
         appendMarriagePerson(prompt, "乙方", personB, personBBazi);
         if (StringUtils.hasText(question)) {
@@ -369,6 +441,7 @@ public class BaziFortuneService {
     private Map<String, Object> buildMeta(Long recordId, Map<String, Object> baziResult) {
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("recordId", recordId);
+        meta.put("calendarType", baziResult.get("calendarType"));
         meta.put("yearPillar", baziResult.get("yearPillar"));
         meta.put("monthPillar", baziResult.get("monthPillar"));
         meta.put("dayPillar", baziResult.get("dayPillar"));
@@ -383,12 +456,14 @@ public class BaziFortuneService {
     }
 
     private Map<String, Object> buildMarriageMeta(
+            Long recordId,
             PersonInput personA,
             Map<String, Object> personABazi,
             PersonInput personB,
             Map<String, Object> personBBazi
     ) {
         Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("recordId", recordId);
         meta.put("personA", buildMarriagePersonMeta(personA, personABazi));
         meta.put("personB", buildMarriagePersonMeta(personB, personBBazi));
         return meta;
@@ -442,6 +517,101 @@ public class BaziFortuneService {
         return vo;
     }
 
+    private BaziMarriageHistoryVO toMarriageHistoryVO(BaziMarriageRecord record) {
+        BaziMarriageHistoryVO vo = new BaziMarriageHistoryVO();
+        vo.setId(record.getId());
+        vo.setPersonAName(record.getPersonAName());
+        vo.setPersonBName(record.getPersonBName());
+        vo.setPersonABaZi(record.getPersonABaZi());
+        vo.setPersonBBaZi(record.getPersonBBaZi());
+        vo.setQuestion(record.getQuestion());
+        vo.setStatus(record.getStatus());
+        vo.setCreateTime(record.getCreateTime());
+        return vo;
+    }
+
+    private BaziMarriageRecordVO toMarriageDetailVO(BaziMarriageRecord record) {
+        BaziMarriageRecordVO vo = new BaziMarriageRecordVO();
+        vo.setId(record.getId());
+        vo.setPersonA(toMarriagePersonVO(
+                record.getPersonAName(),
+                record.getPersonAGender(),
+                record.getPersonACalendarType(),
+                record.getPersonAInputBirthDate(),
+                record.getPersonAInputBirthTime(),
+                record.getPersonAIsLeapMonth(),
+                record.getPersonABirthDatetime(),
+                record.getPersonAYearPillar(),
+                record.getPersonAMonthPillar(),
+                record.getPersonADayPillar(),
+                record.getPersonAHourPillar(),
+                record.getPersonABaZi(),
+                record.getPersonAZodiac(),
+                record.getPersonAShiChen(),
+                record.getPersonALunarText()
+        ));
+        vo.setPersonB(toMarriagePersonVO(
+                record.getPersonBName(),
+                record.getPersonBGender(),
+                record.getPersonBCalendarType(),
+                record.getPersonBInputBirthDate(),
+                record.getPersonBInputBirthTime(),
+                record.getPersonBIsLeapMonth(),
+                record.getPersonBBirthDatetime(),
+                record.getPersonBYearPillar(),
+                record.getPersonBMonthPillar(),
+                record.getPersonBDayPillar(),
+                record.getPersonBHourPillar(),
+                record.getPersonBBaZi(),
+                record.getPersonBZodiac(),
+                record.getPersonBShiChen(),
+                record.getPersonBLunarText()
+        ));
+        vo.setQuestion(record.getQuestion());
+        vo.setFortuneContent(record.getFortuneContent());
+        vo.setStatus(record.getStatus());
+        vo.setErrorMessage(record.getErrorMessage());
+        vo.setCreateTime(record.getCreateTime());
+        return vo;
+    }
+
+    private BaziMarriagePersonVO toMarriagePersonVO(
+            String name,
+            String gender,
+            String calendarType,
+            String birthDate,
+            String birthTime,
+            Integer leapMonth,
+            Date birthDatetime,
+            String yearPillar,
+            String monthPillar,
+            String dayPillar,
+            String hourPillar,
+            String baZi,
+            String zodiac,
+            String shiChen,
+            String lunarText
+    ) {
+        BaziMarriagePersonVO vo = new BaziMarriagePersonVO();
+        vo.setName(name);
+        vo.setGender(gender);
+        vo.setCalendarType(calendarType);
+        vo.setBirthDate(stripCalendarPrefix(birthDate));
+        vo.setBirthTime(birthTime);
+        vo.setLeapMonth(leapMonth != null && leapMonth == 1);
+        vo.setSolarDate(formatDate(birthDatetime));
+        vo.setSolarTime(formatTime(birthDatetime));
+        vo.setYearPillar(yearPillar);
+        vo.setMonthPillar(monthPillar);
+        vo.setDayPillar(dayPillar);
+        vo.setHourPillar(hourPillar);
+        vo.setBaZi(baZi);
+        vo.setZodiac(zodiac);
+        vo.setShiChen(shiChen);
+        vo.setLunarText(lunarText);
+        return vo;
+    }
+
     private String formatDate(Date date) {
         if (date == null) {
             return "";
@@ -456,21 +626,82 @@ public class BaziFortuneService {
         return date.toInstant().atZone(ZONE_ID).toLocalTime().format(TIME_FORMATTER);
     }
 
+    private String stripCalendarPrefix(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        int index = value.indexOf(':');
+        return index >= 0 ? value.substring(index + 1) : value;
+    }
+
     private String valueOrFallback(String value, String fallback) {
         return StringUtils.hasText(value) ? value : fallback;
+    }
+
+    private Map<String, Object> calculateSingleBazi(ParsedInput input) {
+        if ("solar".equals(input.calendarType())) {
+            return BaZiUtil.calculate(
+                    input.birthYear(),
+                    input.birthMonth(),
+                    input.birthDay(),
+                    input.birthDateTime().getHour(),
+                    input.birthDateTime().getMinute()
+            );
+        }
+        return BaZiUtil.calculateFromLunar(
+                input.birthYear(),
+                input.birthMonth(),
+                input.birthDay(),
+                input.leapMonth(),
+                input.birthDateTime().getHour(),
+                input.birthDateTime().getMinute()
+        );
+    }
+
+    private String resolveCalendarType(String calendarType) {
+        return "solar".equalsIgnoreCase(calendarType) ? "solar" : "lunar";
+    }
+
+    private String calendarTypeLabel(String calendarType) {
+        return "solar".equals(calendarType) ? "阳历" : "农历";
+    }
+
+    private void validateBirthDate(String calendarType, int year, int month, int day, String fieldLabel) {
+        if (month < 1 || month > 12 || day < 1) {
+            throw new IllegalArgumentException(fieldLabel + "不合法");
+        }
+        if ("solar".equals(calendarType)) {
+            try {
+                LocalDate.of(year, month, day);
+            } catch (Exception e) {
+                throw new IllegalArgumentException(fieldLabel + "不合法");
+            }
+            return;
+        }
+        if (day > 30) {
+            throw new IllegalArgumentException(fieldLabel + "不合法");
+        }
+    }
+
+    private String formatRawBirthDate(int year, int month, int day) {
+        return String.format("%04d-%02d-%02d", year, month, day);
     }
 
     private String formatLunarDate(int year, int month, int day) {
         return String.format("%04d-%02d-%02d", year, month, day);
     }
 
+    private String formatInputBirthDate(String calendarType, int year, int month, int day) {
+        return calendarTypeLabel(calendarType) + ":" + formatRawBirthDate(year, month, day);
+    }
+
     private void appendMarriagePerson(StringBuilder prompt, String roleName, PersonInput input, Map<String, Object> baziResult) {
         prompt.append(roleName).append("姓名：").append(input.name()).append("\n");
         prompt.append(roleName).append("性别：").append(input.gender()).append("\n");
-        prompt.append(roleName).append("输入日期类型：农历\n");
-        prompt.append(roleName).append("农历出生时间：")
-                .append(formatLunarDate(input.birthYear(), input.birthMonth(), input.birthDay()))
-                .append(input.leapMonth() ? "（闰月）" : "")
+        prompt.append(roleName).append("输入日期类型：").append(calendarTypeLabel(input.calendarType())).append("\n");
+        prompt.append(roleName).append(calendarTypeLabel(input.calendarType())).append("出生时间：")
+                .append(formatRawBirthDate(input.birthYear(), input.birthMonth(), input.birthDay()))
+                .append("lunar".equals(input.calendarType()) && input.leapMonth() ? "（闰月）" : "")
                 .append(" ")
                 .append(input.birthDateTime().toLocalTime().format(TIME_FORMATTER))
                 .append("\n");
@@ -496,7 +727,8 @@ public class BaziFortuneService {
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("name", input.name());
         meta.put("gender", input.gender());
-        meta.put("birthDate", formatLunarDate(input.birthYear(), input.birthMonth(), input.birthDay()));
+        meta.put("calendarType", input.calendarType());
+        meta.put("birthDate", formatRawBirthDate(input.birthYear(), input.birthMonth(), input.birthDay()));
         meta.put("birthTime", input.birthDateTime().toLocalTime().format(TIME_FORMATTER));
         meta.put("leapMonth", input.leapMonth());
         meta.put("solarDate", baziResult.get("solarDate"));
@@ -510,6 +742,50 @@ public class BaziFortuneService {
         meta.put("shiChen", baziResult.get("shiChen"));
         meta.put("solarTerm", baziResult.get("solarTerm"));
         return meta;
+    }
+
+    private void fillMarriagePersonRecord(BaziMarriageRecord record, boolean first, PersonInput input, Map<String, Object> baziResult) {
+        LocalDate solarDate = LocalDate.parse((String) baziResult.get("solarDate"), DATE_FORMATTER);
+        LocalTime time = input.birthDateTime().toLocalTime();
+        LocalDateTime solarDateTime = LocalDateTime.of(solarDate, time);
+        Date birthDatetime = Date.from(solarDateTime.atZone(ZONE_ID).toInstant());
+        String inputBirthDate = formatInputBirthDate(input.calendarType(), input.birthYear(), input.birthMonth(), input.birthDay());
+        Integer leapMonth = "lunar".equals(input.calendarType()) && input.leapMonth() ? 1 : 0;
+
+        if (first) {
+            record.setPersonAName(input.name());
+            record.setPersonAGender(input.gender());
+            record.setPersonACalendarType(input.calendarType());
+            record.setPersonABirthDatetime(birthDatetime);
+            record.setPersonAInputBirthDate(inputBirthDate);
+            record.setPersonAInputBirthTime(time.format(TIME_FORMATTER));
+            record.setPersonAIsLeapMonth(leapMonth);
+            record.setPersonAYearPillar((String) baziResult.get("yearPillar"));
+            record.setPersonAMonthPillar((String) baziResult.get("monthPillar"));
+            record.setPersonADayPillar((String) baziResult.get("dayPillar"));
+            record.setPersonAHourPillar((String) baziResult.get("hourPillar"));
+            record.setPersonABaZi((String) baziResult.get("baZi"));
+            record.setPersonAZodiac((String) baziResult.get("zodiac"));
+            record.setPersonAShiChen((String) baziResult.get("shiChen"));
+            record.setPersonALunarText((String) baziResult.get("inputLunarText"));
+            return;
+        }
+
+        record.setPersonBName(input.name());
+        record.setPersonBGender(input.gender());
+        record.setPersonBCalendarType(input.calendarType());
+        record.setPersonBBirthDatetime(birthDatetime);
+        record.setPersonBInputBirthDate(inputBirthDate);
+        record.setPersonBInputBirthTime(time.format(TIME_FORMATTER));
+        record.setPersonBIsLeapMonth(leapMonth);
+        record.setPersonBYearPillar((String) baziResult.get("yearPillar"));
+        record.setPersonBMonthPillar((String) baziResult.get("monthPillar"));
+        record.setPersonBDayPillar((String) baziResult.get("dayPillar"));
+        record.setPersonBHourPillar((String) baziResult.get("hourPillar"));
+        record.setPersonBBaZi((String) baziResult.get("baZi"));
+        record.setPersonBZodiac((String) baziResult.get("zodiac"));
+        record.setPersonBShiChen((String) baziResult.get("shiChen"));
+        record.setPersonBLunarText((String) baziResult.get("inputLunarText"));
     }
 
     private String buildFortuneSystemPrompt() {
@@ -558,10 +834,12 @@ public class BaziFortuneService {
     }
 
     private record ParsedInput(
+            String name,
             int birthYear,
             int birthMonth,
             int birthDay,
             boolean leapMonth,
+            String calendarType,
             LocalDateTime birthDateTime,
             String gender,
             String question
@@ -574,6 +852,7 @@ public class BaziFortuneService {
             int birthMonth,
             int birthDay,
             boolean leapMonth,
+            String calendarType,
             LocalDateTime birthDateTime,
             String gender
     ) {

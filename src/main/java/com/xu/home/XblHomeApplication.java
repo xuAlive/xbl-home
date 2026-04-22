@@ -12,6 +12,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @MapperScan({
         "com.xu.home.mapper.blog",
         "com.xu.home.mapper.calendar",
+        "com.xu.home.mapper.crawler",
+        "com.xu.home.mapper.medical",
         "com.xu.home.mapper.schedule",
         "com.xu.home.mapper.timesheet"
 })

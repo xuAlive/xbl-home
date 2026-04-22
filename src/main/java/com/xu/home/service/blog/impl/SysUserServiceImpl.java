@@ -10,6 +10,7 @@ import com.xu.home.domain.blog.SysUserLogin;
 import com.xu.home.mapper.blog.SysUserInfoMapper;
 import com.xu.home.mapper.blog.SysUserMapper;
 import com.xu.home.param.common.UserToken;
+import com.xu.home.param.blog.po.sys.ChangePasswordPo;
 import com.xu.home.param.blog.po.sys.LoginUserPo;
 import com.xu.home.service.blog.SysRoleService;
 import com.xu.home.service.blog.SysUserService;
@@ -154,8 +155,43 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Response changePassword(String account, ChangePasswordPo po) {
+        if (!StringUtils.hasText(account)) {
+            return Response.error("未登录");
+        }
+        if (po == null) {
+            return Response.error("参数不能为空");
+        }
+        if (!StringUtils.hasText(po.getOldPassword())) {
+            return Response.error("原密码不能为空");
+        }
+        if (!StringUtils.hasText(po.getNewPassword())) {
+            return Response.error("新密码不能为空");
+        }
+        if (!StringUtils.hasText(po.getConfirmPassword())) {
+            return Response.error("确认密码不能为空");
+        }
+        if (!po.getNewPassword().equals(po.getConfirmPassword())) {
+            return Response.error("两次输入的新密码不一致");
+        }
+
+        SysUser sysUser = getOne(new QueryWrapper<SysUser>().eq("account", account).eq("is_delete", 0));
+        if (sysUser == null) {
+            return Response.error("用户不存在");
+        }
+        if (!PasswordUtil.matches(po.getOldPassword(), sysUser.getPassword())) {
+            return Response.error("原密码错误");
+        }
+
+        SysUser updateUser = new SysUser();
+        updateUser.setId(sysUser.getId());
+        updateUser.setPassword(PasswordUtil.encode(po.getNewPassword()));
+        boolean updated = updateById(updateUser);
+        return updated ? Response.success() : Response.error("修改密码失败");
+    }
+
 
 }
-
-
 

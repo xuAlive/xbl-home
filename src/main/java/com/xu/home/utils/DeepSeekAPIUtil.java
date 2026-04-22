@@ -57,7 +57,7 @@ public class DeepSeekAPIUtil {
         return null;
     }
 
-    public void streamCompletions(String message, Consumer<String> deltaConsumer) {
+    public void streamChatCompletions(String message, Consumer<StreamChunk> chunkConsumer) {
         HttpURLConnection connection = null;
         try {
             String requestUrl = deepSeekProperties.resolveApiUrl() + "/chat/completions";
@@ -102,13 +102,23 @@ public class DeepSeekAPIUtil {
                     if (choices == null || choices.isEmpty()) {
                         continue;
                     }
-                    JSONObject delta = choices.getJSONObject(0).getJSONObject("delta");
+                    JSONObject choice = choices.getJSONObject(0);
+                    JSONObject delta = choice.getJSONObject("delta");
                     if (delta == null) {
                         continue;
                     }
-                    String content = delta.getString("content");
-                    if (StringUtils.hasText(content)) {
-                        deltaConsumer.accept(content);
+
+                    StreamChunk chunk = new StreamChunk();
+                    chunk.setRole(delta.getString("role"));
+                    chunk.setContent(delta.getString("content"));
+                    chunk.setReasoningContent(delta.getString("reasoning_content"));
+                    chunk.setFinishReason(choice.getString("finish_reason"));
+
+                    if (StringUtils.hasText(chunk.getRole())
+                            || StringUtils.hasText(chunk.getContent())
+                            || StringUtils.hasText(chunk.getReasoningContent())
+                            || StringUtils.hasText(chunk.getFinishReason())) {
+                        chunkConsumer.accept(chunk);
                     }
                 }
             }
@@ -119,6 +129,45 @@ public class DeepSeekAPIUtil {
             if (connection != null) {
                 connection.disconnect();
             }
+        }
+    }
+
+    public static class StreamChunk {
+        private String role;
+        private String content;
+        private String reasoningContent;
+        private String finishReason;
+
+        public String getRole() {
+            return role;
+        }
+
+        public void setRole(String role) {
+            this.role = role;
+        }
+
+        public String getContent() {
+            return content;
+        }
+
+        public void setContent(String content) {
+            this.content = content;
+        }
+
+        public String getReasoningContent() {
+            return reasoningContent;
+        }
+
+        public void setReasoningContent(String reasoningContent) {
+            this.reasoningContent = reasoningContent;
+        }
+
+        public String getFinishReason() {
+            return finishReason;
+        }
+
+        public void setFinishReason(String finishReason) {
+            this.finishReason = finishReason;
         }
     }
 

@@ -34,7 +34,7 @@ public class WechatConfig {
      * @return 授权链接
      */
     public String getAuthUrl(String redirectPath, String scope) {
-        String redirectUri = redirectDomain + "/blog/wechat/callback?target=" + redirectPath;
+        String redirectUri = redirectDomain + "/xbl/blog/wechat/callback?target=" + redirectPath;
         return String.format(
             "https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=%s&state=STATE#wechat_redirect",
             appId,

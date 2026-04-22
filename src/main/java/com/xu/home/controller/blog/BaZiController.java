@@ -4,6 +4,8 @@ import com.xu.home.param.blog.po.bazi.BaziFortunePO;
 import com.xu.home.param.blog.po.bazi.BaziMarriagePO;
 import com.xu.home.param.blog.vo.bazi.BaziFortuneHistoryVO;
 import com.xu.home.param.blog.vo.bazi.BaziFortuneRecordVO;
+import com.xu.home.param.blog.vo.bazi.BaziMarriageHistoryVO;
+import com.xu.home.param.blog.vo.bazi.BaziMarriageRecordVO;
 import com.xu.home.param.common.response.Response;
 import com.xu.home.service.ai.bazi.BaziFortuneService;
 import com.xu.home.utils.BaZiUtil;
@@ -92,7 +94,7 @@ public class BaZiController {
 
     @PostMapping(value = "/marriage/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamMarriage(@RequestBody BaziMarriagePO po) {
-        return baziFortuneService.streamMarriage(po);
+        return baziFortuneService.streamMarriage(po, SessionUtil.getCurrentAccount());
     }
 
     @GetMapping("/fortune/history")
@@ -103,5 +105,15 @@ public class BaZiController {
     @GetMapping("/fortune/detail/{id}")
     public Response<BaziFortuneRecordVO> getFortuneDetail(@PathVariable("id") Long id) {
         return Response.success(baziFortuneService.getDetail(id, SessionUtil.getCurrentAccount()));
+    }
+
+    @GetMapping("/marriage/history")
+    public Response<List<BaziMarriageHistoryVO>> getMarriageHistory() {
+        return Response.success(baziFortuneService.getMarriageHistory(SessionUtil.getCurrentAccount()));
+    }
+
+    @GetMapping("/marriage/detail/{id}")
+    public Response<BaziMarriageRecordVO> getMarriageDetail(@PathVariable("id") Long id) {
+        return Response.success(baziFortuneService.getMarriageDetail(id, SessionUtil.getCurrentAccount()));
     }
 }

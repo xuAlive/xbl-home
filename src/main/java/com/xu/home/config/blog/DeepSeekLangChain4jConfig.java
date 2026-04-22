@@ -8,11 +8,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
+
 @Configuration
 public class DeepSeekLangChain4jConfig {
 
     @Bean
-    public ChatModel deepSeekChatModel(DeepSeekProperties properties) {
+    public ChatModel deepSeekChatModel(DeepSeekProperties properties,
+                                       MedicalKnowledgeProperties medicalKnowledgeProperties) {
         if (!StringUtils.hasText(properties.getApi().getKey())) {
             throw new IllegalArgumentException("未配置 DeepSeek API Key，请先设置环境变量 DEEPSEEK_API_KEY");
         }
@@ -20,6 +23,8 @@ public class DeepSeekLangChain4jConfig {
                 .baseUrl(properties.resolveLangChainBaseUrl())
                 .apiKey(properties.getApi().getKey())
                 .modelName(properties.resolveLangChainModelName())
+                .timeout(Duration.ofSeconds(Math.max(medicalKnowledgeProperties.getAiTimeoutSeconds(), 60)))
+                .maxRetries(1)
                 .logRequests(properties.getLangchain4j().isLogRequests())
                 .logResponses(properties.getLangchain4j().isLogResponses())
                 .build();

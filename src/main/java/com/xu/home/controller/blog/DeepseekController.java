@@ -8,8 +8,10 @@ import com.xu.home.utils.common.SessionUtil;
 import com.xu.home.param.common.response.Response;
 import com.xu.home.service.ai.DeepSeekLangChain4jDemoService;
 import com.xu.home.service.ai.deepseek.DeepSeekDialogueService;
+import org.springframework.http.MediaType;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RequestMapping("/blog/ds")
 @RestController
@@ -27,13 +29,12 @@ public class DeepseekController {
         this.deepseekDialogueInfoService = deepseekDialogueInfoService;
     }
 
-    @PostMapping("/sendCompletion")
+    @PostMapping(value = "/sendCompletion", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @RequirePermission("deepseek:chat")
-    public Response sendCompletion(@RequestBody DialogueInfoPO po){
-        // 从ThreadLocal获取当前登录用户账号，无需传递HttpServletRequest
+    public SseEmitter sendCompletion(@RequestBody DialogueInfoPO po){
         String account = SessionUtil.getCurrentAccount();
         po.setAccount(account);
-        return Response.success(deepSeekDialogueService.sendCompletion(po));
+        return deepSeekDialogueService.streamCompletion(po);
     }
 
     @PostMapping("/langchain4jDemo")

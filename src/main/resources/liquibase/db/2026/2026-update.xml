@@ -81,5 +81,55 @@
         </sql>
     </changeSet>
 
+    <changeSet id="2026-004-create-bazi-marriage-record" author="xubaolin">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `bazi_marriage_record` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                `account` VARCHAR(64) NOT NULL COMMENT '账号',
+                `person_a_name` VARCHAR(64) DEFAULT NULL COMMENT '甲方姓名',
+                `person_a_gender` VARCHAR(16) NOT NULL COMMENT '甲方性别',
+                `person_a_calendar_type` VARCHAR(16) DEFAULT 'lunar' COMMENT '甲方日期类型',
+                `person_a_birth_datetime` DATETIME NOT NULL COMMENT '甲方公历出生时间',
+                `person_a_input_birth_date` VARCHAR(32) DEFAULT NULL COMMENT '甲方输入日期',
+                `person_a_input_birth_time` VARCHAR(16) DEFAULT NULL COMMENT '甲方输入时辰',
+                `person_a_is_leap_month` TINYINT DEFAULT 0 COMMENT '甲方是否闰月',
+                `person_a_year_pillar` VARCHAR(16) DEFAULT NULL COMMENT '甲方年柱',
+                `person_a_month_pillar` VARCHAR(16) DEFAULT NULL COMMENT '甲方月柱',
+                `person_a_day_pillar` VARCHAR(16) DEFAULT NULL COMMENT '甲方日柱',
+                `person_a_hour_pillar` VARCHAR(16) DEFAULT NULL COMMENT '甲方时柱',
+                `person_a_ba_zi` VARCHAR(64) DEFAULT NULL COMMENT '甲方八字',
+                `person_a_zodiac` VARCHAR(16) DEFAULT NULL COMMENT '甲方生肖',
+                `person_a_shi_chen` VARCHAR(16) DEFAULT NULL COMMENT '甲方时辰',
+                `person_a_lunar_text` VARCHAR(64) DEFAULT NULL COMMENT '甲方农历文本',
+                `person_b_name` VARCHAR(64) DEFAULT NULL COMMENT '乙方姓名',
+                `person_b_gender` VARCHAR(16) NOT NULL COMMENT '乙方性别',
+                `person_b_calendar_type` VARCHAR(16) DEFAULT 'lunar' COMMENT '乙方日期类型',
+                `person_b_birth_datetime` DATETIME NOT NULL COMMENT '乙方公历出生时间',
+                `person_b_input_birth_date` VARCHAR(32) DEFAULT NULL COMMENT '乙方输入日期',
+                `person_b_input_birth_time` VARCHAR(16) DEFAULT NULL COMMENT '乙方输入时辰',
+                `person_b_is_leap_month` TINYINT DEFAULT 0 COMMENT '乙方是否闰月',
+                `person_b_year_pillar` VARCHAR(16) DEFAULT NULL COMMENT '乙方年柱',
+                `person_b_month_pillar` VARCHAR(16) DEFAULT NULL COMMENT '乙方月柱',
+                `person_b_day_pillar` VARCHAR(16) DEFAULT NULL COMMENT '乙方日柱',
+                `person_b_hour_pillar` VARCHAR(16) DEFAULT NULL COMMENT '乙方时柱',
+                `person_b_ba_zi` VARCHAR(64) DEFAULT NULL COMMENT '乙方八字',
+                `person_b_zodiac` VARCHAR(16) DEFAULT NULL COMMENT '乙方生肖',
+                `person_b_shi_chen` VARCHAR(16) DEFAULT NULL COMMENT '乙方时辰',
+                `person_b_lunar_text` VARCHAR(64) DEFAULT NULL COMMENT '乙方农历文本',
+                `question` VARCHAR(1000) DEFAULT NULL COMMENT '用户问题',
+                `prompt_text` LONGTEXT DEFAULT NULL COMMENT '提示词',
+                `fortune_content` LONGTEXT DEFAULT NULL COMMENT 'AI分析结果',
+                `model_name` VARCHAR(64) DEFAULT NULL COMMENT '模型名',
+                `status` VARCHAR(20) DEFAULT 'PROCESSING' COMMENT '状态',
+                `error_message` VARCHAR(500) DEFAULT NULL COMMENT '错误信息',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                PRIMARY KEY (`id`),
+                KEY `idx_account` (`account`),
+                KEY `idx_create_time` (`create_time`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='合八字姻缘记录表';
+        </sql>
+    </changeSet>
+
 
 </databaseChangeLog>

@@ -1,14 +1,22 @@
 server:
   port: ${SERVER_PORT:6101}
+  servlet:
+    context-path: /xbl
 
 spring:
   application:
     name: xbl-home
+  config:
+    import: optional:file:.env[.properties],optional:file:./xbl-home/.env[.properties]
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 120MB
 
   datasource:
-    url: jdbc:mysql://${DB_HOST:139.196.156.81}:${DB_PORT:3306}/${DB_NAME:blog}?useSSL=false&serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_general_ci
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:blog}?useSSL=false&serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_general_ci
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:Root@123}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
     type: com.alibaba.druid.pool.DruidDataSource
     druid:
@@ -35,13 +43,13 @@ spring:
 
 mybatis:
   mapper-locations: classpath:/mapper/*.xml
-  type-aliases-package: com.xu.home.domain.blog,com.xu.home.domain.calendar,com.xu.home.domain.schedule,com.xu.home.domain.timesheet
+  type-aliases-package: com.xu.home.domain.blog,com.xu.home.domain.calendar,com.xu.home.domain.crawler,com.xu.home.domain.medical,com.xu.home.domain.schedule,com.xu.home.domain.timesheet
   configuration:
     map-underscore-to-camel-case: true
 
 mybatis-plus:
   mapper-locations: classpath:/mapper/*.xml
-  type-aliases-package: com.xu.home.domain.blog,com.xu.home.domain.calendar,com.xu.home.domain.schedule,com.xu.home.domain.timesheet
+  type-aliases-package: com.xu.home.domain.blog,com.xu.home.domain.calendar,com.xu.home.domain.crawler,com.xu.home.domain.medical,com.xu.home.domain.schedule,com.xu.home.domain.timesheet
   configuration:
     map-underscore-to-camel-case: true
 
@@ -54,7 +62,7 @@ logging:
 deepseek:
   api:
     url: ${DEEPSEEK_API_URL:https://api.deepseek.com/}
-    key: ${DEEPSEEK_API_KEY:sk-58f8b6f94d4d428785511f36899b32d2}
+    key: ${DEEPSEEK_API_KEY:}
   model:
     chat: ${DEEPSEEK_CHAT_MODEL:deepseek-chat}
     reasoner: ${DEEPSEEK_REASONER_MODEL:deepseek-reasoner}
@@ -65,8 +73,8 @@ deepseek:
     log-responses: ${DEEPSEEK_LOG_RESPONSES:false}
 
 wechat:
-  app-id: ${WECHAT_APP_ID:wx1c32639333a13dcb}
-  app-secret: ${WECHAT_APP_SECRET:f9be087be1186342cf96a0249563a0ab}
+  app-id: ${WECHAT_APP_ID:}
+  app-secret: ${WECHAT_APP_SECRET:}
   redirect-domain: ${WECHAT_REDIRECT_DOMAIN:https://www.xbl-blog.top}
 
 upload:
@@ -74,6 +82,15 @@ upload:
     storage-path: ${UPLOAD_IMAGE_PATH:/home/img}
     domain: ${UPLOAD_IMAGE_DOMAIN:https://www.xbl-blog.top}
     url-prefix: /img
+
+medical:
+  knowledge:
+    upload-dir: ${MEDICAL_KNOWLEDGE_UPLOAD_DIR:/tmp/xbl-medical/upload}
+    allowed-local-roots: ${MEDICAL_KNOWLEDGE_ALLOWED_LOCAL_ROOTS:/tmp,/Users/xubaolin}
+    chunk-size: ${MEDICAL_KNOWLEDGE_CHUNK_SIZE:1600}
+    max-chunk-size: ${MEDICAL_KNOWLEDGE_MAX_CHUNK_SIZE:2200}
+    ai-timeout-seconds: ${MEDICAL_KNOWLEDGE_AI_TIMEOUT_SECONDS:600}
+    progress-update-interval: ${MEDICAL_KNOWLEDGE_PROGRESS_UPDATE_INTERVAL:5}
 
 blog:
   jwt:
