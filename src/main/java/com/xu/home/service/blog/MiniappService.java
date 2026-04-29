@@ -17,6 +17,16 @@ public interface MiniappService extends IService<Miniapp> {
 
     List<Miniapp> getManageList();
 
+    /**
+     * 校验小程序 ID 是否仍处于上架状态。
+     */
+    boolean isAvailable(Integer id);
+
+    /**
+     * 校验前端路由对应的小程序是否仍处于上架状态。
+     */
+    boolean isRouteAvailable(String route);
+
     boolean offline(Integer id);
 
     boolean online(Integer id);

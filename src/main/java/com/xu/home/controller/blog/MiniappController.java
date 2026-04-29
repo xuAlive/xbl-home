@@ -35,6 +35,22 @@ public class MiniappController {
         return Response.success(miniappService.getManageList());
     }
 
+    @GetMapping("/check-route")
+    public Response checkRoute(@RequestParam("route") String route) {
+        if (!miniappService.isRouteAvailable(route)) {
+            return Response.error("无权限查看或小程序已下架");
+        }
+        return Response.success();
+    }
+
+    @GetMapping("/check/{id}")
+    public Response check(@PathVariable("id") Integer id) {
+        if (!miniappService.isAvailable(id)) {
+            return Response.error("无权限查看或小程序已下架");
+        }
+        return Response.success();
+    }
+
     @PostMapping("/manage/offline")
     public Response offline(@RequestBody IdPO po) {
         return Response.checkResult(miniappService.offline(po.getId().intValue()));

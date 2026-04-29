@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="2026-medical-record-qc-prompt-template-001" author="codex">
+        <sql>
+            CREATE TABLE IF NOT EXISTS `medical_record_qc_prompt_template` (
+                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                `account` VARCHAR(50) NOT NULL DEFAULT '' COMMENT '所属账号，空字符串表示系统模板',
+                `template_name` VARCHAR(100) NOT NULL COMMENT '模板名称',
+                `scene_code` VARCHAR(50) NOT NULL DEFAULT 'medical_case_qc' COMMENT '场景编码',
+                `model_provider` VARCHAR(50) NOT NULL DEFAULT 'qwen' COMMENT '模型供应商',
+                `model_name` VARCHAR(100) NOT NULL COMMENT '默认模型名称',
+                `system_message` LONGTEXT NOT NULL COMMENT 'System Message',
+                `prompt_template` LONGTEXT NOT NULL COMMENT '用户 Prompt 模板',
+                `default_flag` TINYINT DEFAULT 0 COMMENT '是否默认模板',
+                `enabled` TINYINT DEFAULT 1 COMMENT '是否启用',
+                `sort_order` INT DEFAULT 100 COMMENT '排序',
+                `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+                `is_delete` TINYINT DEFAULT 0 COMMENT '删除标记',
+                PRIMARY KEY (`id`),
+                KEY `idx_medical_record_qc_prompt_account` (`account`, `is_delete`, `enabled`),
+                KEY `idx_medical_record_qc_prompt_scene` (`scene_code`, `default_flag`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='病例质控Prompt模板表';
+        </sql>
+    </changeSet>
+
+    <changeSet id="2026-medical-record-qc-prompt-template-002" author="codex">
+        <sql><![CDATA[
+            INSERT INTO medical_record_qc_prompt_template (
+                account,
+                template_name,
+                scene_code,
+                model_provider,
+                model_name,
+                system_message,
+                prompt_template,
+                default_flag,
+                enabled,
+                sort_order,
+                create_time,
+                update_time,
+                is_delete
+            )
+            SELECT
+                '',
+                '通用病例内涵质控',
+                'medical_case_qc',
+                'qwen',
+                'qwen-plus',
+                '你是医疗病历内涵质控助手。你的职责是读取完整病例文本，先解析病例中的主诉、现病史、体格检查、辅助检查、诊断、治疗经过等关键信息，再围绕病历完整性、医学逻辑一致性、诊断依据充分性和书写规范性进行结构化质控。需要医学依据时，必须先调用 searchMedicalKnowledge 检索当前账号医疗知识库；需要引用原文依据时，再调用 getMedicalKnowledgeEvidence。不要编造知识库中不存在的依据。最终只输出 JSON，不要输出 markdown，不要输出解释性文字。',
+                '请对以下完整病例进行结构化质控。
+
+工作步骤：
+1. 先从完整病例中解析主诉、现病史、诊断、科室和其他关键病历要素。
+2. 根据解析结果生成 3 到 6 个医学检索问题，调用 searchMedicalKnowledge 检索相关知识。
+3. 合并检索到的知识，判断病例描述、诊断依据、主诉和现病史是否一致。
+4. 对真正引用的知识调用 getMedicalKnowledgeEvidence 获取证据。
+5. 给出问题、风险等级和可执行整改建议。
+
+输出要求：
+- 只返回 JSON。
+- riskLevel 仅允许 low、medium、high。
+- sections 至少包含 chiefComplaint、presentIllness、diagnosis、knowledge 四类分项。
+- knowledgeReferences 只保留实际引用过的知识。
+- 如果知识库没有命中，也要基于病例文本给出基础质控结论，并说明未引用知识库。
+
+JSON 格式：
+{
+  "qualified": true,
+  "riskLevel": "low",
+  "summary": "",
+  "sections": [
+    {
+      "sectionCode": "chiefComplaint",
+      "sectionName": "主诉质控",
+      "passed": true,
+      "conclusion": "",
+      "problems": [],
+      "suggestions": []
+    }
+  ],
+  "problems": [],
+  "suggestions": [],
+  "knowledgeReferences": [
+    {
+      "itemId": 1,
+      "title": "",
+      "sourceName": "",
+      "chapterTitle": "",
+      "quoteText": ""
+    }
+  ]
+}
+
+完整病例：
+${medicalRecord}
+
+兼容字段：
+主诉：${chiefComplaint}
+现病史：${presentIllness}
+初步诊断：${preliminaryDiagnosis}
+科室：${department}',
+                1,
+                1,
+                1,
+                NOW(),
+                NOW(),
+                0
+            FROM DUAL
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM medical_record_qc_prompt_template
+                WHERE account = ''
+                  AND template_name = '通用病例内涵质控'
+                  AND is_delete = 0
+            );
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

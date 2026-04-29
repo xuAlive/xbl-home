@@ -82,11 +82,14 @@ public class MedicalKnowledgeServiceImpl implements MedicalKnowledgeService {
     private static final Pattern HEADING_PATTERN = Pattern.compile("^(第[一二三四五六七八九十百零0-9]+[章节篇部分].*|[一二三四五六七八九十]+[、.].*|\\d+[、.].*)$");
     private static final Pattern PAGE_NUMBER_PATTERN = Pattern.compile("^\\s*[—\\-]*\\s*\\d+\\s*[—\\-]*\\s*$");
     private static final Pattern BLANK_LINE_PATTERN = Pattern.compile("\\n{3,}");
-    private static final Pattern DIRECTORY_LINE_PATTERN = Pattern.compile("^(第?[一二三四五六七八九十百零0-9]+[章节篇部分卷].*?)(\\.{2,}|·{2,}|…{2,}|\\s{2,})\\s*\\d+\\s*$");
+    private static final Pattern DIRECTORY_LINE_PATTERN = Pattern.compile("^(第?[一二三四五六七八九十百零〇0-9]+[章节篇部分卷]|[一二三四五六七八九十百零〇0-9]+[、.．]).{1,100}?(\\.{2,}|·{2,}|…{1,}|\\s{2,})\\s*\\d{1,4}\\s*$");
+    private static final Pattern DIRECTORY_LEADER_PATTERN = Pattern.compile(".*(\\.{2,}|·{2,}|…{1,}|\\s{4,}).*");
+    private static final Pattern DIRECTORY_ITEM_PREFIX_PATTERN = Pattern.compile("^(?:录\\s*)?(第?[一二三四五六七八九十百零〇0-9]+[章节篇部分卷]|[一二三四五六七八九十百零〇0-9]+[、.．]).*");
+    private static final Pattern MULTI_DIRECTORY_ITEM_PATTERN = Pattern.compile(".*[一二三四五六七八九十百零〇0-9]+[、.．].*[一二三四五六七八九十百零〇0-9]+[、.．].*");
     private static final Pattern SIMPLE_DIRECTORY_LINE_PATTERN = Pattern.compile("^.*\\s+\\d{1,4}\\s*$");
     private static final DateTimeFormatter FILE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final Set<String> SKIP_SECTION_TITLES = Set.of(
-            "目录", "目 录", "前言", "序言", "序", "绪论", "引言", "导言", "作者简介", "内容简介", "出版说明", "再版前言"
+            "目录", "目 录", "前言", "序言", "序", "绪言", "绪论", "引言", "导言", "作者简介", "内容简介", "出版说明", "再版前言"
     );
 
     private final MedicalKnowledgeSourceMapper sourceMapper;
@@ -1060,7 +1063,11 @@ public class MedicalKnowledgeServiceImpl implements MedicalKnowledgeService {
             if (StringUtils.isBlank(normalized)) {
                 continue;
             }
-            if (isDirectoryLine(normalized) || isGarbledLine(normalized) || isCopyrightLine(normalized)) {
+            if (shouldSkipSectionTitle(normalized)
+                    || isDirectoryLine(normalized)
+                    || isBookMetaLine(normalized)
+                    || isGarbledLine(normalized)
+                    || isCopyrightLine(normalized)) {
                 continue;
             }
             if (seenLines.add(normalized)) {
@@ -1091,7 +1098,11 @@ public class MedicalKnowledgeServiceImpl implements MedicalKnowledgeService {
      * 判断某一行是否符合章节标题特征。
      */
     private boolean isHeading(String text) {
-        return StringUtils.isNotBlank(text) && text.length() <= 60 && HEADING_PATTERN.matcher(text).matches();
+        return StringUtils.isNotBlank(text)
+                && text.length() <= 60
+                && !isDirectoryLine(text)
+                && !shouldSkipSectionTitle(text)
+                && HEADING_PATTERN.matcher(text).matches();
     }
 
     /**
@@ -1111,7 +1122,10 @@ public class MedicalKnowledgeServiceImpl implements MedicalKnowledgeService {
                 continue;
             }
             boolean skipByTitle = shouldSkipSectionTitle(title);
-            boolean skipByContent = looksLikeDirectoryContent(content) || looksLikePrefaceContent(title, content) || containsMostlyGarbled(content);
+            boolean skipByContent = looksLikeDirectoryContent(content)
+                    || looksLikePrefaceContent(title, content)
+                    || containsMostlyGarbled(content)
+                    || looksLikeBookMetaContent(content);
             if (skipByTitle || skipByContent) {
                 continue;
             }
@@ -1162,7 +1176,10 @@ public class MedicalKnowledgeServiceImpl implements MedicalKnowledgeService {
      */
     private ParsedSegment buildSegment(String title, StringBuilder content, Integer pageFrom, Integer pageTo) {
         String cleaned = cleanChapterContent(content == null ? null : content.toString());
-        if (StringUtils.isBlank(cleaned) || containsMostlyGarbled(cleaned) || looksLikeDirectoryContent(cleaned)) {
+        if (StringUtils.isBlank(cleaned)
+                || containsMostlyGarbled(cleaned)
+                || looksLikeDirectoryContent(cleaned)
+                || looksLikeBookMetaContent(cleaned)) {
             return null;
         }
         return new ParsedSegment(StringUtils.trimToNull(title), cleaned, pageFrom, pageTo);
@@ -1212,8 +1229,12 @@ public class MedicalKnowledgeServiceImpl implements MedicalKnowledgeService {
         if (shouldSkipSectionTitle(title)) {
             return true;
         }
-        String preview = abbreviateForLog(content, 120);
-        return preview.startsWith("前言") || preview.startsWith("序言") || preview.startsWith("目录");
+        String preview = abbreviateForLog(content, 120).replaceAll("\\s+", "");
+        return preview.startsWith("前言")
+                || preview.startsWith("序言")
+                || preview.startsWith("绪言")
+                || preview.startsWith("绪论")
+                || preview.startsWith("目录");
     }
 
     /**
@@ -1239,7 +1260,11 @@ public class MedicalKnowledgeServiceImpl implements MedicalKnowledgeService {
         if (effectiveLines == 0) {
             return true;
         }
-        return directoryLines >= 3 && directoryLines * 1.0 / effectiveLines >= 0.6;
+        double ratio = directoryLines * 1.0 / effectiveLines;
+        if (directoryLines >= 3 && ratio >= 0.45D) {
+            return true;
+        }
+        return directoryLines >= 1 && effectiveLines <= 3 && ratio >= 0.5D;
     }
 
     /**
@@ -1256,9 +1281,53 @@ public class MedicalKnowledgeServiceImpl implements MedicalKnowledgeService {
         if (DIRECTORY_LINE_PATTERN.matcher(normalized).matches()) {
             return true;
         }
+        if (DIRECTORY_LEADER_PATTERN.matcher(normalized).matches()
+                && (DIRECTORY_ITEM_PREFIX_PATTERN.matcher(normalized).matches()
+                || MULTI_DIRECTORY_ITEM_PATTERN.matcher(normalized).matches())
+                && normalized.length() <= 140) {
+            return true;
+        }
         return SIMPLE_DIRECTORY_LINE_PATTERN.matcher(normalized).matches()
                 && normalized.length() <= 40
                 && (normalized.contains("章") || normalized.contains("节") || normalized.contains("篇"));
+    }
+
+    /**
+     * 识别教材前置说明、编写说明等不属于医学知识正文的元信息行。
+     */
+    private boolean isBookMetaLine(String line) {
+        if (StringUtils.isBlank(line)) {
+            return false;
+        }
+        String normalized = cleanInlineText(line);
+        String compact = normalized.replaceAll("\\s+", "");
+        return compact.length() <= 160
+                && compact.contains("编写")
+                && compact.indexOf('第') != compact.lastIndexOf('第')
+                && (compact.contains("章") || compact.contains("节"));
+    }
+
+    /**
+     * 判断一段内容是否主要由教材说明、编写说明等元信息组成。
+     */
+    private boolean looksLikeBookMetaContent(String content) {
+        if (StringUtils.isBlank(content)) {
+            return false;
+        }
+        String[] lines = content.split("\\n");
+        int effectiveLines = 0;
+        int metaLines = 0;
+        for (String line : lines) {
+            String normalized = cleanInlineText(line);
+            if (StringUtils.isBlank(normalized)) {
+                continue;
+            }
+            effectiveLines++;
+            if (isBookMetaLine(normalized)) {
+                metaLines++;
+            }
+        }
+        return effectiveLines > 0 && metaLines * 1.0 / effectiveLines >= 0.5D;
     }
 
     /**

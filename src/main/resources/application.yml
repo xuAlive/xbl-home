@@ -72,6 +72,19 @@ deepseek:
     log-requests: ${DEEPSEEK_LOG_REQUESTS:false}
     log-responses: ${DEEPSEEK_LOG_RESPONSES:false}
 
+qwen:
+  api:
+    url: ${QWEN_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    key: ${QWEN_API_KEY:}
+  model:
+    chat: ${QWEN_CHAT_MODEL:qwen-plus}
+  langchain4j:
+    base-url: ${QWEN_LANGCHAIN_BASE_URL:}
+    model-name: ${QWEN_LANGCHAIN_MODEL:}
+    log-requests: ${QWEN_LOG_REQUESTS:false}
+    log-responses: ${QWEN_LOG_RESPONSES:false}
+    timeout-seconds: ${QWEN_TIMEOUT_SECONDS:180}
+
 wechat:
   app-id: ${WECHAT_APP_ID:}
   app-secret: ${WECHAT_APP_SECRET:}

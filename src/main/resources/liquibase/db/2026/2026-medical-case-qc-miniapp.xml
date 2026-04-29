@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="2026-medical-case-qc-miniapp-001" author="codex">
+        <sql>
+            INSERT INTO miniapp (name, intro, icon, color, category, tag_type, route, external_link, sort_order, is_delete, create_time, update_time)
+            SELECT '病例质控', '结合千问模型和医疗知识库，对主诉、现病史与诊断一致性进行结构化质控', 'Document', '#2563EB', 'AI工具', 'primary', '/index/medicalCaseQc', NULL, 11, 0, NOW(), NOW()
+            FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM miniapp WHERE name = '病例质控');
+
+            UPDATE miniapp
+            SET intro = '结合千问模型和医疗知识库，对主诉、现病史与诊断一致性进行结构化质控',
+                icon = 'Document',
+                color = '#2563EB',
+                category = 'AI工具',
+                tag_type = 'primary',
+                route = '/index/medicalCaseQc',
+                external_link = NULL,
+                sort_order = 11,
+                is_delete = 0,
+                update_time = NOW()
+            WHERE name = '病例质控';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
